@@ -116,11 +116,11 @@ mkdir -p .gemini
 
 | Secret名 | 説明 | 取得方法 |
 |---------|------|----------|
-| `ANTHROPIC_API_KEY` | Claude API Key (必須) | [Anthropic Console](https://console.anthropic.com/)でAPI Keyを作成 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude API Key (必須) | [Anthropic Console](https://console.anthropic.com/)でAPI Keyを作成 |
 | `PAT_TOKEN` | GitHub Personal Access Token (必須) | Settings → Developer settings → Personal access tokens |
 | `GEMINI_API_KEY` | Gemini API Key (オプション) | [Google AI Studio](https://aistudio.google.com/)でAPI Keyを作成 |
 
-### 2.2 ANTHROPIC_API_KEYの取得方法
+### 2.2 CLAUDE_CODE_OAUTH_TOKENの取得方法
 
 1. [Anthropic Console](https://console.anthropic.com/)にアクセス
 2. アカウント作成・ログイン
@@ -156,7 +156,7 @@ mkdir -p .gemini
 
 ```bash
 # カレントディレクトリがリポジトリ内の場合
-gh secret set ANTHROPIC_API_KEY --app actions
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --app actions
 # ↑ 実行後、APIキーを安全に入力（画面に表示されません）
 
 gh secret set PAT_TOKEN --app actions
@@ -176,8 +176,8 @@ gh secret list --app actions
 4. **New repository secret**をクリック
 5. 以下を順番に追加：
 
-**ANTHROPIC_API_KEYの追加：**
-- **Name**: `ANTHROPIC_API_KEY`
+**CLAUDE_CODE_OAUTH_TOKENの追加：**
+- **Name**: `CLAUDE_CODE_OAUTH_TOKEN`
 - **Secret**: 取得したClaude APIキー
 - **Add secret**をクリック
 
@@ -194,7 +194,7 @@ gh secret list --app actions
 ### 2.6 設定確認
 
 設定完了後、Secretsページに以下が表示されることを確認：
-- ✅ `ANTHROPIC_API_KEY` (Updated X minutes ago)
+- ✅ `CLAUDE_CODE_OAUTH_TOKEN` (Updated X minutes ago)
 - ✅ `PAT_TOKEN` (Updated X minutes ago)
 - ✅ `GEMINI_API_KEY` (Updated X minutes ago) ※設定した場合
 

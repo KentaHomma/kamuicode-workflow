@@ -60,7 +60,7 @@
 ### 必要なSecrets
 
 ```yaml
-ANTHROPIC_API_KEY: # Claude API Key
+CLAUDE_CODE_OAUTH_TOKEN: # Claude API Key
 PAT_TOKEN: # GitHub Personal Access Token
 ```
 

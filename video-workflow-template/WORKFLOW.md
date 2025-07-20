@@ -58,7 +58,7 @@ graph TD
 2. Issueテンプレートを `.github/ISSUE_TEMPLATE/` に配置（オプション）
    - `video-request.md`
 3. 必要なSecretsを設定
-   - `ANTHROPIC_API_KEY`
+   - `CLAUDE_CODE_OAUTH_TOKEN`
    - `PAT_TOKEN` (オプション)
 4. MCP設定ファイルを準備
 5. 手動実行またはIssue経由でトリガー

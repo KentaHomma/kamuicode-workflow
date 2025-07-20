@@ -24,7 +24,7 @@ Issueからのトリガー型ワークフロー。以下の形式でIssueまた�
 ## 必要な設定
 
 ### Secrets
-- `ANTHROPIC_API_KEY`: Claude APIキー
+- `CLAUDE_CODE_OAUTH_TOKEN`: Claude APIキー
 - `PAT_TOKEN`: (オプション) GitHub Personal Access Token
 
 ### MCP設定

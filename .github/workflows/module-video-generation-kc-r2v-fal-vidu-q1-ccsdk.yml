@@ -36,7 +36,7 @@ on:
         description: '完了ステータス'
         value: ${{ jobs.video-generation.outputs.completed }}
     secrets:
-      anthropic_api_key:
+      CLAUDE_CODE_OAUTH_TOKEN:
         description: 'Anthropic API Key'
         required: true
       github_pat:
@@ -69,7 +69,7 @@ jobs:
       - name: 動画生成エージェント (Vidu Q1)
         id: video
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           echo "::group::🎬 Video Generation Agent Execution (Vidu Q1)"
           echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"

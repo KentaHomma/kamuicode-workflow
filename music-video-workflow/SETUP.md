@@ -171,10 +171,10 @@ cat .claude/settings.json
 
 | Secret名 | 説明 | 取得方法 |
 |---------|------|----------|
-| `ANTHROPIC_API_KEY` | Claude API Key (必須) | [Anthropic Console](https://console.anthropic.com/)でAPI Keyを作成 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude API Key (必須) | [Anthropic Console](https://console.anthropic.com/)でAPI Keyを作成 |
 | `PAT_TOKEN` | GitHub Personal Access Token (オプション) | Settings → Developer settings → Personal access tokens → Tokens (classic) |
 
-### 2.2 ANTHROPIC_API_KEYの取得方法
+### 2.2 CLAUDE_CODE_OAUTH_TOKENの取得方法
 
 1. [Anthropic Console](https://console.anthropic.com/)にアクセス
 2. ログインまたはアカウント作成
@@ -206,7 +206,7 @@ cat .claude/settings.json
 
 ```bash
 # カレントディレクトリがリポジトリ内の場合
-gh secret set ANTHROPIC_API_KEY --app actions
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --app actions
 # ↑ 実行後、APIキーを安全に入力（画面に表示されません）
 
 # PAT_TOKEN（必要に応じて）
@@ -218,7 +218,7 @@ gh secret list --app actions
 
 **特定のリポジトリに設定する場合:**
 ```bash
-gh secret set ANTHROPIC_API_KEY --app actions --repo owner/repo-name
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --app actions --repo owner/repo-name
 ```
 
 #### 方法2: GitHub Web UI（従来通り）
@@ -229,8 +229,8 @@ gh secret set ANTHROPIC_API_KEY --app actions --repo owner/repo-name
 4. **New repository secret**をクリック
 5. 以下を順番に追加：
 
-**ANTHROPIC_API_KEYの追加：**
-- **Name**: `ANTHROPIC_API_KEY`
+**CLAUDE_CODE_OAUTH_TOKENの追加：**
+- **Name**: `CLAUDE_CODE_OAUTH_TOKEN`
 - **Secret**: 先ほどコピーしたClaude APIキー
 - **Add secret**をクリック
 
@@ -242,7 +242,7 @@ gh secret set ANTHROPIC_API_KEY --app actions --repo owner/repo-name
 ### 2.5 設定確認
 
 設定完了後、Secretsページに以下が表示されることを確認：
-- ✅ `ANTHROPIC_API_KEY` (Updated X minutes ago)
+- ✅ `CLAUDE_CODE_OAUTH_TOKEN` (Updated X minutes ago)
 - ✅ `PAT_TOKEN` (Updated X minutes ago) ※設定した場合
 
 ## 📁 ステップ3: ディレクトリ構造

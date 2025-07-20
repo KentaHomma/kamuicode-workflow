@@ -32,7 +32,7 @@ on:
         description: '画像URL'
         value: ${{ jobs.image-generation.outputs.image-url }}
     secrets:
-      anthropic_api_key:
+      CLAUDE_CODE_OAUTH_TOKEN:
         description: 'Anthropic API Key'
         required: true
       github_pat:
@@ -65,7 +65,7 @@ jobs:
       - name: 画像生成エージェント (Imagen4 Ultra)
         id: image
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           echo "::group::🎨 Image Generation Agent Execution (Imagen4 Ultra)"
           echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"

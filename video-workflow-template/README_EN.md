@@ -24,7 +24,7 @@ Concept: [Describe video concept or content]
 ## Required Configuration
 
 ### Secrets
-- `ANTHROPIC_API_KEY`: Claude API key
+- `CLAUDE_CODE_OAUTH_TOKEN`: Claude API key
 - `PAT_TOKEN`: (Optional) GitHub Personal Access Token
 
 ### MCP Configuration

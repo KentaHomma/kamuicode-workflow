@@ -74,7 +74,7 @@ on:
         description: '動画8用コンセプト'
         value: ${{ jobs.planning.outputs.video-concept-8 }}
     secrets:
-      anthropic_api_key:
+      CLAUDE_CODE_OAUTH_TOKEN:
         description: 'Anthropic API Key'
         required: true
       github_pat:
@@ -123,7 +123,7 @@ jobs:
       - name: 動画制作計画エージェント
         id: planning
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           echo "::group::📋 Video Planning Agent Execution"
           echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"

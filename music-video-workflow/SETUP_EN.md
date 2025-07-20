@@ -171,10 +171,10 @@ The following keys need to be configured:
 
 | Secret Name | Description | How to Obtain |
 |-------------|-------------|---------------|
-| `ANTHROPIC_API_KEY` | Claude API Key (Required) | Create API Key at [Anthropic Console](https://console.anthropic.com/) |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude API Key (Required) | Create API Key at [Anthropic Console](https://console.anthropic.com/) |
 | `PAT_TOKEN` | GitHub Personal Access Token (Optional) | Settings → Developer settings → Personal access tokens → Tokens (classic) |
 
-### 2.2 How to Obtain ANTHROPIC_API_KEY
+### 2.2 How to Obtain CLAUDE_CODE_OAUTH_TOKEN
 
 1. Access [Anthropic Console](https://console.anthropic.com/)
 2. Login or create account
@@ -206,7 +206,7 @@ The following keys need to be configured:
 
 ```bash
 # If current directory is within repository
-gh secret set ANTHROPIC_API_KEY --app actions
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --app actions
 # ↑ After execution, safely input API key (not displayed on screen)
 
 # PAT_TOKEN (if needed)
@@ -218,7 +218,7 @@ gh secret list --app actions
 
 **To set for specific repository:**
 ```bash
-gh secret set ANTHROPIC_API_KEY --app actions --repo owner/repo-name
+gh secret set CLAUDE_CODE_OAUTH_TOKEN --app actions --repo owner/repo-name
 ```
 
 #### Method 2: GitHub Web UI (Traditional)
@@ -229,8 +229,8 @@ gh secret set ANTHROPIC_API_KEY --app actions --repo owner/repo-name
 4. Click **New repository secret**
 5. Add the following in order:
 
-**Adding ANTHROPIC_API_KEY:**
-- **Name**: `ANTHROPIC_API_KEY`
+**Adding CLAUDE_CODE_OAUTH_TOKEN:**
+- **Name**: `CLAUDE_CODE_OAUTH_TOKEN`
 - **Secret**: Claude API key copied earlier
 - Click **Add secret**
 
@@ -242,7 +242,7 @@ gh secret set ANTHROPIC_API_KEY --app actions --repo owner/repo-name
 ### 2.5 Configuration Verification
 
 After configuration is complete, verify the following appears on the Secrets page:
-- ✅ `ANTHROPIC_API_KEY` (Updated X minutes ago)
+- ✅ `CLAUDE_CODE_OAUTH_TOKEN` (Updated X minutes ago)
 - ✅ `PAT_TOKEN` (Updated X minutes ago) ※If configured
 
 ## 📁 Step 3: Directory Structure

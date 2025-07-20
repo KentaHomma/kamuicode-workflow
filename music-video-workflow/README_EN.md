@@ -60,7 +60,7 @@ This GitHub Actions workflow automatically generates complete music videos from 
 ### Required Secrets
 
 ```yaml
-ANTHROPIC_API_KEY: # Claude API Key
+CLAUDE_CODE_OAUTH_TOKEN: # Claude API Key
 PAT_TOKEN: # GitHub Personal Access Token
 ```
 
