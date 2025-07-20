@@ -88,15 +88,16 @@ jobs:
             echo "📁 Created images folder: $IMAGES_DIR"
           fi
           
-          # MCP設定の確認
-          MCP_CONFIG_PATH=".claude/mcp-kamuicode.json"
-          MCP_CONFIG_ABS_PATH="$(pwd)/$MCP_CONFIG_PATH"
+          # MCP設定ファイルを作成
+          mkdir -p .claude
+          echo '${{ secrets.MCP_KAMUICODE_JSON }}' > .claude/mcp-kamuicode.json
+          MCP_CONFIG_ABS_PATH="$(pwd)/.claude/mcp-kamuicode.json"
           
-          # MCP設定ファイルの存在確認
+          # MCP設定ファイルの作成確認
           if [ -f "$MCP_CONFIG_ABS_PATH" ]; then
-            echo "✅ MCP config file exists at: $MCP_CONFIG_ABS_PATH"
+            echo "✅ MCP config file created at: $MCP_CONFIG_ABS_PATH"
           else
-            echo "❌ MCP config file not found at: $MCP_CONFIG_ABS_PATH"
+            echo "❌ Failed to create MCP config file at: $MCP_CONFIG_ABS_PATH"
             exit 1
           fi
           

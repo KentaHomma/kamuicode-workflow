@@ -97,9 +97,10 @@ jobs:
             exit 1
           fi
           
-          # MCP設定の確認
-          MCP_CONFIG_PATH=".claude/mcp-kamuicode.json"
-          MCP_CONFIG_ABS_PATH="$(pwd)/$MCP_CONFIG_PATH"
+          # MCP設定ファイルを作成
+          mkdir -p .claude
+          echo '${{ secrets.MCP_KAMUICODE_JSON }}' > .claude/mcp-kamuicode.json
+          MCP_CONFIG_ABS_PATH="$(pwd)/.claude/mcp-kamuicode.json"
           
           # 動画生成プロンプトを使用
           FINAL_VIDEO_PROMPT="$VIDEO_PROMPT"
