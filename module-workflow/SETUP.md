@@ -117,8 +117,10 @@ mkdir -p .gemini
 | Secret名 | 説明 | 取得方法 |
 |---------|------|----------|
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude API Key (必須) | [Anthropic Console](https://console.anthropic.com/)でAPI Keyを作成 |
+| `MCP_CONFIG_SECRET` | MCP設定JSON (必須) | `.claude/mcp-kamuicode.json`の内容をJSON文字列として設定 |
 | `PAT_TOKEN` | GitHub Personal Access Token (必須) | Settings → Developer settings → Personal access tokens |
 | `GEMINI_API_KEY` | Gemini API Key (オプション) | [Google AI Studio](https://aistudio.google.com/)でAPI Keyを作成 |
+| `GEMINI_SETTINGS_SECRET` | Gemini設定JSON (オプション) | `.gemini/settings.json`の内容をJSON文字列として設定 |
 
 ### 2.2 CLAUDE_CODE_OAUTH_TOKENの取得方法
 
@@ -159,10 +161,15 @@ mkdir -p .gemini
 gh secret set CLAUDE_CODE_OAUTH_TOKEN --app actions
 # ↑ 実行後、APIキーを安全に入力（画面に表示されません）
 
+gh secret set MCP_CONFIG_SECRET --app actions
+# ↑ .claude/mcp-kamuicode.jsonの内容をJSON文字列として入力
+
 gh secret set PAT_TOKEN --app actions
 
-# オプション
+# オプション（Geminiワークフロー使用時のみ）
 gh secret set GEMINI_API_KEY --app actions
+gh secret set GEMINI_SETTINGS_SECRET --app actions
+# ↑ .gemini/settings.jsonの内容をJSON文字列として入力
 
 # 設定確認
 gh secret list --app actions
@@ -181,6 +188,11 @@ gh secret list --app actions
 - **Secret**: 取得したClaude APIキー
 - **Add secret**をクリック
 
+**MCP_CONFIG_SECRETの追加：**
+- **Name**: `MCP_CONFIG_SECRET`
+- **Secret**: `.claude/mcp-kamuicode.json`の内容をJSON文字列として入力
+- **Add secret**をクリック
+
 **PAT_TOKENの追加：**
 - **Name**: `PAT_TOKEN`  
 - **Secret**: 取得したPersonal Access Token
@@ -191,12 +203,19 @@ gh secret list --app actions
 - **Secret**: 取得したGemini APIキー
 - **Add secret**をクリック
 
+**GEMINI_SETTINGS_SECRETの追加（オプション）：**
+- **Name**: `GEMINI_SETTINGS_SECRET`
+- **Secret**: `.gemini/settings.json`の内容をJSON文字列として入力
+- **Add secret**をクリック
+
 ### 2.6 設定確認
 
 設定完了後、Secretsページに以下が表示されることを確認：
 - ✅ `CLAUDE_CODE_OAUTH_TOKEN` (Updated X minutes ago)
+- ✅ `MCP_CONFIG_SECRET` (Updated X minutes ago)
 - ✅ `PAT_TOKEN` (Updated X minutes ago)
 - ✅ `GEMINI_API_KEY` (Updated X minutes ago) ※設定した場合
+- ✅ `GEMINI_SETTINGS_SECRET` (Updated X minutes ago) ※設定した場合
 
 ## 📁 ステップ3: ディレクトリ構造
 

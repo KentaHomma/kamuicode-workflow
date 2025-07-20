@@ -39,6 +39,9 @@ on:
       CLAUDE_CODE_OAUTH_TOKEN:
         description: 'Anthropic API Key'
         required: true
+      MCP_CONFIG_SECRET:
+        description: 'MCP Configuration JSON'
+        required: true
       github_pat:
         description: 'GitHub Token'
         required: true
@@ -65,6 +68,14 @@ jobs:
       
       - name: Install Claude Code SDK
         run: npm install @anthropic-ai/claude-code
+      
+      - name: Create MCP config file from secret
+        env:
+          MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
+        run: |
+          mkdir -p .claude
+          echo "$MCP_CONFIG_SECRET" > .claude/mcp-kamuicode.json
+          echo "✅ Created MCP config file from secret"
       
       - name: 動画生成エージェント (Vidu Q1)
         id: video
@@ -97,10 +108,9 @@ jobs:
             exit 1
           fi
           
-          # MCP設定ファイルを作成
-          mkdir -p .claude
-          echo '${{ secrets.MCP_KAMUICODE_JSON }}' > .claude/mcp-kamuicode.json
-          MCP_CONFIG_ABS_PATH="$(pwd)/.claude/mcp-kamuicode.json"
+          # MCP設定の確認
+          MCP_CONFIG_PATH=".claude/mcp-kamuicode.json"
+          MCP_CONFIG_ABS_PATH="$(pwd)/$MCP_CONFIG_PATH"
           
           # 動画生成プロンプトを使用
           FINAL_VIDEO_PROMPT="$VIDEO_PROMPT"

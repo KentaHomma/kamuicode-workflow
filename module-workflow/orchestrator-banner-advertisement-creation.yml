@@ -51,6 +51,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # Phase 3: ベース画像生成（バナー1）
@@ -67,6 +68,7 @@ jobs:
       video_index: '1'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # Phase 4: テキストオーバーレイ（バナー1）
@@ -85,6 +87,7 @@ jobs:
       banner_index: '1'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # Phase 3-4: バナー2の生成（total_banners >= 2の場合）
@@ -102,6 +105,7 @@ jobs:
       video_index: '2'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   text-overlay-2:
@@ -120,6 +124,7 @@ jobs:
       banner_index: '2'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # Phase 3-4: バナー3の生成（total_banners >= 3の場合）
@@ -137,6 +142,7 @@ jobs:
       video_index: '3'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   text-overlay-3:
@@ -155,6 +161,7 @@ jobs:
       banner_index: '3'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # Phase 3-4: バナー4の生成（total_banners >= 4の場合）
@@ -172,6 +179,7 @@ jobs:
       video_index: '4'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   text-overlay-4:
@@ -190,6 +198,7 @@ jobs:
       banner_index: '4'
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # Phase 5: プルリクエスト作成

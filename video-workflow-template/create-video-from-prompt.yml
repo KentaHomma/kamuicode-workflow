@@ -59,6 +59,14 @@ jobs:
       - name: Install Claude Code SDK
         run: npm install @anthropic-ai/claude-code
       
+      - name: Create MCP config file from secret
+        env:
+          MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
+        run: |
+          mkdir -p .claude
+          echo "$MCP_CONFIG_SECRET" > .claude/mcp-kamuicode.json
+          echo "✅ Created MCP config file from secret"
+      
       - name: 動画制作計画エージェント
         id: planning
         env:
@@ -227,6 +235,14 @@ jobs:
       - name: Install Claude Code SDK
         run: npm install @anthropic-ai/claude-code
       
+      - name: Create MCP config file from secret
+        env:
+          MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
+        run: |
+          mkdir -p .claude
+          echo "$MCP_CONFIG_SECRET" > .claude/mcp-kamuicode.json
+          echo "✅ Created MCP config file from secret"
+      
       - name: 画像生成エージェント (Imagen4 Ultra)
         id: image
         env:
@@ -381,6 +397,14 @@ jobs:
       
       - name: Install Claude Code SDK
         run: npm install @anthropic-ai/claude-code
+      
+      - name: Create MCP config file from secret
+        env:
+          MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
+        run: |
+          mkdir -p .claude
+          echo "$MCP_CONFIG_SECRET" > .claude/mcp-kamuicode.json
+          echo "✅ Created MCP config file from secret"
       
       - name: 動画プロンプト最適化エージェント
         id: optimization
@@ -543,6 +567,14 @@ jobs:
       
       - name: Install Claude Code SDK
         run: npm install @anthropic-ai/claude-code
+      
+      - name: Create MCP config file from secret
+        env:
+          MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
+        run: |
+          mkdir -p .claude
+          echo "$MCP_CONFIG_SECRET" > .claude/mcp-kamuicode.json
+          echo "✅ Created MCP config file from secret"
       
       - name: 動画生成エージェント (Vidu Q1)
         id: video

@@ -30,6 +30,7 @@ jobs:
       total_videos: '1'
     secrets:
       gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_SETTINGS_SECRET: ${{ secrets.GEMINI_SETTINGS_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   generate-image:
@@ -43,6 +44,7 @@ jobs:
       video_index: '1'
     secrets:
       gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_SETTINGS_SECRET: ${{ secrets.GEMINI_SETTINGS_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   generate-video:
@@ -57,6 +59,7 @@ jobs:
       video_index: '1'
     secrets:
       gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_SETTINGS_SECRET: ${{ secrets.GEMINI_SETTINGS_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   analyze-video:
@@ -73,6 +76,7 @@ jobs:
       video_index: '1'
     secrets:
       gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_SETTINGS_SECRET: ${{ secrets.GEMINI_SETTINGS_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   create-summary:

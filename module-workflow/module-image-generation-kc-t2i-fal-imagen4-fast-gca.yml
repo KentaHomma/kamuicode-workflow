@@ -35,6 +35,9 @@ on:
       gemini_api_key:
         description: 'Gemini API Key'
         required: true
+      GEMINI_SETTINGS_SECRET:
+        description: 'Gemini Settings JSON'
+        required: true
       github_pat:
         description: 'GitHub Token'
         required: true
@@ -53,6 +56,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.branch-name }}
+      
+      - name: Create Gemini settings file from secret
+        env:
+          GEMINI_SETTINGS_SECRET: ${{ secrets.GEMINI_SETTINGS_SECRET }}
+        run: |
+          mkdir -p .gemini
+          echo "$GEMINI_SETTINGS_SECRET" > .gemini/settings.json
+          echo "✅ Created Gemini settings file from secret"
           
       - name: 🖼️ 画像生成エージェント (Imagen4 Fast)
         id: generate

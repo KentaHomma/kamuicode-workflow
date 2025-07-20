@@ -53,6 +53,14 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ needs.setup-branch.outputs.branch-name }}
+    
+    - name: Create Gemini settings file from secret
+      env:
+        GEMINI_SETTINGS_SECRET: ${{ secrets.GEMINI_SETTINGS_SECRET }}
+      run: |
+        mkdir -p .gemini
+        echo "$GEMINI_SETTINGS_SECRET" > .gemini/settings.json
+        echo "✅ Created Gemini settings file from secret"
         
     - name: 📋 プロンプト計画エージェント (Gemini)
       id: planning
@@ -162,6 +170,14 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ needs.setup-branch.outputs.branch-name }}
+    
+    - name: Create Gemini settings file from secret
+      env:
+        GEMINI_SETTINGS_SECRET: ${{ secrets.GEMINI_SETTINGS_SECRET }}
+      run: |
+        mkdir -p .gemini
+        echo "$GEMINI_SETTINGS_SECRET" > .gemini/settings.json
+        echo "✅ Created Gemini settings file from secret"
         
     - name: 🖼️ 画像生成エージェント (Imagen4 Fast)
       id: generate
@@ -276,6 +292,14 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ needs.setup-branch.outputs.branch-name }}
+    
+    - name: Create Gemini settings file from secret
+      env:
+        GEMINI_SETTINGS_SECRET: ${{ secrets.GEMINI_SETTINGS_SECRET }}
+      run: |
+        mkdir -p .gemini
+        echo "$GEMINI_SETTINGS_SECRET" > .gemini/settings.json
+        echo "✅ Created Gemini settings file from secret"
         
     - name: 🎬 動画生成エージェント (Hailuo-02 Pro)
       id: generate
@@ -400,6 +424,14 @@ jobs:
       uses: actions/checkout@v4
       with:
         ref: ${{ needs.setup-branch.outputs.branch-name }}
+    
+    - name: Create Gemini settings file from secret
+      env:
+        GEMINI_SETTINGS_SECRET: ${{ secrets.GEMINI_SETTINGS_SECRET }}
+      run: |
+        mkdir -p .gemini
+        echo "$GEMINI_SETTINGS_SECRET" > .gemini/settings.json
+        echo "✅ Created Gemini settings file from secret"
         
     - name: 📊 動画分析エージェント (Gemini Vision)
       id: analyze-video

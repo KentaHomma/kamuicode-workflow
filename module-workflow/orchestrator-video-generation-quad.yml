@@ -32,6 +32,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # 3. 画像生成（4つ並列）
@@ -46,6 +47,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   image-generation-2:
@@ -59,6 +61,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   image-generation-3:
@@ -72,6 +75,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   image-generation-4:
@@ -85,6 +89,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # 4. 動画プロンプト最適化（4つ並列）
@@ -100,6 +105,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   video-prompt-optimization-2:
@@ -114,6 +120,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   video-prompt-optimization-3:
@@ -128,6 +135,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   video-prompt-optimization-4:
@@ -142,6 +150,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # 5. 動画生成（4つ並列）
@@ -157,6 +166,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   video-generation-2:
@@ -171,6 +181,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   video-generation-3:
@@ -185,6 +196,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   video-generation-4:
@@ -199,6 +211,7 @@ jobs:
       folder-name: ${{ needs.setup.outputs.folder-name }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
       github_pat: ${{ secrets.PAT_TOKEN }}
 
   # 6. PR作成
