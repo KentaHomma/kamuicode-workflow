@@ -1,0 +1,175 @@
+name: module-video-generation-kc-i2v-fal-hailuo-02-pro-gca
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      video-prompt:
+        description: '動画生成用プロンプト'
+        required: true
+        type: string
+      image-url:
+        description: '画像URL'
+        required: true
+        type: string
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      video_index:
+        description: '動画インデックス'
+        required: false
+        type: string
+        default: '1'
+    outputs:
+      video-url:
+        description: '動画URL'
+        value: ${{ jobs.video-generation.outputs.video-url }}
+      completed:
+        description: '完了ステータス'
+        value: ${{ jobs.video-generation.outputs.completed }}
+    secrets:
+      gemini_api_key:
+        description: 'Gemini API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  video-generation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      video-url: ${{ steps.verify.outputs.video-url }}
+      completed: ${{ steps.verify.outputs.completed }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+          
+      - name: 🎬 動画生成エージェント (Hailuo-02 Pro)
+        id: generate
+        uses: google-gemini/gemini-cli-action@main
+        with:
+          GEMINI_API_KEY: ${{ secrets.gemini_api_key }}
+          prompt: |
+            🎬 **動画生成タスク**
+            
+            **入力画像URL**: ${{ inputs.image-url }}
+            **動画プロンプト**: ${{ inputs.video-prompt }}
+            
+            **重要**: 画像URLは上記の`${{ inputs.image-url }}`を使用すること
+            ローカルファイルパス（file://や相対パス）は使用禁止
+            
+            **手順**:
+            1. ディレクトリ作成:
+               ```bash
+               mkdir -p ${{ inputs.folder-name }}/videos-${{ inputs.video_index }}
+               ```
+            
+            2. **重要**: kamuicodeの正しい手順でi2v-fal-hailuo-02-proを使用:
+               - `mcp__i2v-fal-hailuo-02-pro__hailuo_02_submit` で動画生成開始（画像URLとして`${{ inputs.image-url }}`を使用）
+               - `mcp__i2v-fal-hailuo-02-pro__hailuo_02_status` でステータス確認
+               - `mcp__i2v-fal-hailuo-02-pro__hailuo_02_result` で結果取得とダウンロード
+            
+            3. **resultツール使用**: `hailuo_02_result`ツールでリクエストIDから動画URLを取得
+               - リクエストIDのみを使用（他のパラメータは不要）
+               - 動画URLが返される（例: https://v3.fal.media/files/...）
+            
+            4. **重要**: MCPサーバーがcurlコマンドを表示するが、**実行はされていない**
+               - "Download command: curl -o ..." は提案であり、実行済みではない
+               - 必ず表示されたcurlコマンドを実際に実行すること
+            
+            5. **ダウンロード実行**: 
+               - MCPサーバーが表示するcurlコマンドは無視
+               - 絶対パスを使用して以下のコマンドを実行:
+               ```bash
+               curl -L -o "$(pwd)/${{ inputs.folder-name }}/videos-${{ inputs.video_index }}/video.mp4" "[resultツールで取得した動画URL]"
+               ls -la "$(pwd)/${{ inputs.folder-name }}/videos-${{ inputs.video_index }}/video.mp4"
+               ```
+            
+            6. **動画URL保存（必須）**:
+               - **重要**: 取得した動画URLを必ずファイルに保存すること:
+               ```bash
+               echo "[resultツールで取得した動画URL]" > "${{ inputs.folder-name }}/videos-${{ inputs.video_index }}/video-url.txt"
+               cat "${{ inputs.folder-name }}/videos-${{ inputs.video_index }}/video-url.txt"
+               ```
+            
+            7. ダウンロード完了の確認とファイルサイズ表示
+            
+            **重要**: 
+            - MCPサーバーはcurlコマンドを表示するだけ（実行しない）
+            - "⚠️ Important: Execute the above curl command" の警告に従うこと
+            - 必ず実際にcurlコマンドを実行してファイルをダウンロード
+            
+      - name: Verify video generation
+        id: verify
+        run: |
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          VIDEO_INDEX="${{ inputs.video_index }}"
+          VIDEOS_DIR="$FOLDER_NAME/videos-${VIDEO_INDEX}"
+          VIDEO_PATH="$VIDEOS_DIR/video.mp4"
+          VIDEO_URL_FILE="$VIDEOS_DIR/video-url.txt"
+          
+          echo "🔍 Checking video generation results..."
+          echo "Expected video path: $VIDEO_PATH"
+          echo "Expected URL file: $VIDEO_URL_FILE"
+          echo "Input image URL was: ${{ inputs.image-url }}"
+          
+          # ディレクトリ構造の確認
+          echo "Directory structure:"
+          ls -la "$FOLDER_NAME/" || echo "Folder not found: $FOLDER_NAME"
+          ls -la "$VIDEOS_DIR/" || echo "Videos folder not found: $VIDEOS_DIR"
+          
+          if [ -f "$VIDEO_PATH" ]; then
+            VIDEO_SIZE=$(stat -c%s "$VIDEO_PATH" 2>/dev/null || stat -f%z "$VIDEO_PATH" 2>/dev/null || echo "unknown")
+            echo "✅ Video generated successfully: $VIDEO_PATH ($VIDEO_SIZE bytes)"
+            
+            # 動画URLの確認と出力設定
+            if [ -f "$VIDEO_URL_FILE" ]; then
+              VIDEO_URL=$(cat "$VIDEO_URL_FILE")
+              echo "✅ Video URL found: $VIDEO_URL"
+              echo "video-url=$VIDEO_URL" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Video URL file not found: $VIDEO_URL_FILE"
+              exit 1
+            fi
+          else
+            echo "❌ Video not found at expected path: $VIDEO_PATH"
+            echo "Available files in videos directory:"
+            find "$FOLDER_NAME" -type f -name "*.mp4" -o -name "*.webm" -o -name "*.mov" || echo "No video files found"
+            exit 1
+          fi
+          
+          echo "completed=true" >> $GITHUB_OUTPUT
+          
+      - name: Commit generated video
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No video files to commit"
+          else
+            git commit -m "🎬 Add generated Hailuo-02 video: ${{ inputs.concept }}
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi

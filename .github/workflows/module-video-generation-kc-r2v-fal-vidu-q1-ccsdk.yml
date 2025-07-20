@@ -1,0 +1,205 @@
+name: module-video-generation-kc-r2v-fal-vidu-q1-ccsdk
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      video-prompt:
+        description: '動画生成用プロンプト'
+        required: true
+        type: string
+      image-url:
+        description: '画像URL'
+        required: true
+        type: string
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      video_index:
+        description: '動画インデックス'
+        required: false
+        type: string
+        default: '1'
+    outputs:
+      video-url:
+        description: '動画URL'
+        value: ${{ jobs.video-generation.outputs.video-url }}
+      completed:
+        description: '完了ステータス'
+        value: ${{ jobs.video-generation.outputs.completed }}
+    secrets:
+      anthropic_api_key:
+        description: 'Anthropic API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  video-generation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      video-url: ${{ steps.video.outputs.video-url }}
+      completed: ${{ steps.video.outputs.completed }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Claude Code SDK
+        run: npm install @anthropic-ai/claude-code
+      
+      - name: 動画生成エージェント (Vidu Q1)
+        id: video
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+        run: |
+          echo "::group::🎬 Video Generation Agent Execution (Vidu Q1)"
+          echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+          
+          # 設定
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          VIDEO_INDEX="${{ inputs.video_index }}"
+          VIDEOS_DIR="$FOLDER_NAME/videos-${VIDEO_INDEX}"
+          USER_CONCEPT="${{ inputs.concept }}"
+          VIDEO_PROMPT="${{ inputs.video-prompt }}"
+          GOOGLE_IMAGE_URL="${{ inputs.image-url }}"
+          
+          echo "Video index: $VIDEO_INDEX"
+          echo "Videos folder: $VIDEOS_DIR"
+          
+          # 動画フォルダを事前に作成
+          if [ ! -d "$VIDEOS_DIR" ]; then
+            mkdir -p "$VIDEOS_DIR"
+            echo "📁 Created videos folder: $VIDEOS_DIR"
+          fi
+          
+          # Google画像URLの確認
+          if [ -z "$GOOGLE_IMAGE_URL" ]; then
+            echo "::error::❌ Google image URL not provided from previous job"
+            exit 1
+          fi
+          
+          # MCP設定の確認
+          MCP_CONFIG_PATH=".claude/mcp-kamuicode.json"
+          MCP_CONFIG_ABS_PATH="$(pwd)/$MCP_CONFIG_PATH"
+          
+          # 動画生成プロンプトを使用
+          FINAL_VIDEO_PROMPT="$VIDEO_PROMPT"
+          
+          PROMPT="以下のGoogle画像URLを使用してVidu Q1で参照動画を生成してください。
+
+          **画像URL**: $GOOGLE_IMAGE_URL
+          **元のユーザー指示**: $USER_CONCEPT
+          **画像認識による最適化プロンプト**: $FINAL_VIDEO_PROMPT
+
+          **実行手順**:
+          1. 提供されたGoogle画像URL（$GOOGLE_IMAGE_URL）を使用
+          2. **最適化された動画プロンプト**（$FINAL_VIDEO_PROMPT）を使用してVidu Q1で動画生成
+          3. \`mcp__r2v-fal-vidu-q1__vidu_q1_submit\`ツールで動画生成を開始（画像URLを直接指定）
+          4. \`mcp__r2v-fal-vidu-q1__vidu_q1_status\`でステータス確認（動画生成には時間がかかるため、適度な間隔を空けて確認）
+          5. Bashツールで \`sleep 60\` を実行してから再度ステータス確認（必要に応じて複数回）
+          6. \`mcp__r2v-fal-vidu-q1__vidu_q1_result\`で結果取得して動画URLを取得
+          7. **必須**: 取得した動画URLをBashツールで「$VIDEOS_DIR/video.mp4」にダウンロード保存
+          8. **必須**: 動画URLを「$VIDEOS_DIR/video-url.txt」に保存
+          9. **確認**: ダウンロードが成功したことを確認し、ファイルサイズを表示
+
+          **重要な注意点**:
+          - 提供された画像URL（$GOOGLE_IMAGE_URL）をそのまま使用
+          - URLの有効期限は約1時間のため、生成後すぐにダウンロード
+          - **動画は必ず「$VIDEOS_DIR」ディレクトリに保存**
+          - **ファイル名は「video.mp4」とする**
+          - ローカルファイルパスは使用禁止（画像URLのみ使用）
+          - **動画生成は時間がかかります**: ステータス確認の間に適度な待機時間（60秒程度）を入れてください
+          - **忍耐強く**: 生成完了まで複数回のステータス確認が必要な場合があります
+          - **ダウンロード必須**: 動画URLを取得したら必ずwgetやcurlでローカルファイルに保存
+          - **ファイル確認**: 保存後にls -lhでファイルサイズを確認し、0バイトでないことを確認"
+          
+          echo "🚀 Starting Video Generation Agent Claude Code CLI..."
+          
+          # Claude Code CLIの実行
+          npx @anthropic-ai/claude-code \
+            --mcp-config="$MCP_CONFIG_ABS_PATH" \
+            --allowedTools "mcp__r2v-fal-vidu-q1__vidu_q1_submit,mcp__r2v-fal-vidu-q1__vidu_q1_status,mcp__r2v-fal-vidu-q1__vidu_q1_result,Bash" \
+            --max-turns 25 \
+            --verbose \
+            --permission-mode "acceptEdits" \
+            -p "$PROMPT" || {
+              echo "::error::❌ Claude Code CLI execution failed"
+              exit 1
+            }
+          
+          # 生成された動画の確認
+          echo ""
+          echo "🎬 Checking generated videos..."
+          if [ -d "$VIDEOS_DIR" ]; then
+            VIDEO_COUNT=$(find "$VIDEOS_DIR" -name "*.mp4" -o -name "*.mov" -o -name "*.avi" | wc -l)
+            echo "::notice::🎬 Generated $VIDEO_COUNT videos"
+            if [ "$VIDEO_COUNT" -gt 0 ]; then
+              # 動画ファイルサイズの確認
+              for video_file in $(find "$VIDEOS_DIR" -name "*.mp4" -o -name "*.mov" -o -name "*.avi" | head -3); do
+                if [ -f "$video_file" ]; then
+                  VIDEO_SIZE=$(stat -c%s "$video_file" 2>/dev/null || stat -f%z "$video_file" 2>/dev/null || echo "0")
+                  echo "::notice::📹 Video file: $video_file (${VIDEO_SIZE} bytes)"
+                  if [ "$VIDEO_SIZE" -eq 0 ]; then
+                    echo "::error::❌ Video file is empty: $video_file"
+                    exit 1
+                  fi
+                fi
+              done
+              
+              # 動画URLファイルの確認と出力設定
+              VIDEO_URL_FILE="$VIDEOS_DIR/video-url.txt"
+              if [ -f "$VIDEO_URL_FILE" ]; then
+                VIDEO_URL=$(cat "$VIDEO_URL_FILE")
+                echo "✅ Video URL found: $VIDEO_URL"
+                echo "video-url=$VIDEO_URL" >> $GITHUB_OUTPUT
+              else
+                echo "❌ Video URL file not found: $VIDEO_URL_FILE"
+                echo "Creating empty URL file to continue workflow..."
+                echo "" > "$VIDEO_URL_FILE"
+              fi
+            else
+              echo "::error::❌ No videos were generated - this is required for the workflow to succeed"
+              exit 1
+            fi
+          else
+            echo "::error::❌ Videos directory not found - video generation failed"
+            exit 1
+          fi
+          
+          echo "completed=true" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+      
+      - name: Commit and push videos
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ inputs.folder-name }}/
+          if git diff --cached --quiet; then
+            echo "No videos to commit"
+          else
+            git commit -m "Add generated videos: ${{ inputs.concept }}"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi

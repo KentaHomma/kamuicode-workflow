@@ -1,0 +1,90 @@
+name: orchestrator-video-generation
+
+on:
+  workflow_dispatch:
+    inputs:
+      concept:
+        description: '動画のコンセプト（画像生成用）'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  # 1. ブランチ・フォルダセットアップ
+  setup:
+    uses: ./.github/workflows/module-setup-branch.yml
+    with:
+      concept: ${{ inputs.concept }}
+      project_prefix: 'video'
+
+  # 2. AI企画（1動画用）
+  planning:
+    needs: setup
+    uses: ./.github/workflows/module-planning-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      total_videos: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 3. 画像生成
+  image-generation:
+    needs: [setup, planning]
+    uses: ./.github/workflows/module-image-generation-kc-t2i-fal-imagen4-ultra-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.image-prompt-1 }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 4. 動画プロンプト最適化
+  video-optimization:
+    needs: [setup, planning, image-generation]
+    uses: ./.github/workflows/module-video-prompt-optimization-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-concept: ${{ needs.planning.outputs.video-concept-1 }}
+      image-url: ${{ needs.image-generation.outputs.image-url }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 5. 動画生成
+  video-generation:
+    needs: [setup, image-generation, video-optimization]
+    uses: ./.github/workflows/module-video-generation-kc-r2v-fal-vidu-q1-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-prompt: ${{ needs.video-optimization.outputs.video-prompt }}
+      image-url: ${{ needs.image-generation.outputs.image-url }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 6. PR作成
+  create-pr:
+    needs: [setup, video-generation]
+    uses: ./.github/workflows/module-create-pr.yml
+    with:
+      concept: ${{ inputs.concept }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      github_pat: ${{ secrets.PAT_TOKEN }}

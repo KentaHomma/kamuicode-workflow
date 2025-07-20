@@ -1,0 +1,233 @@
+name: module-planning-gca
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      total_videos:
+        description: '生成する動画の数'
+        required: false
+        type: string
+        default: '1'
+    outputs:
+      planning-completed:
+        description: '企画完了ステータス'
+        value: ${{ jobs.planning.outputs.planning-completed }}
+      # 動的出力（最大8動画まで対応）
+      image-prompt-1:
+        description: '動画1用画像生成プロンプト'
+        value: ${{ jobs.planning.outputs.image-prompt-1 }}
+      image-prompt-2:
+        description: '動画2用画像生成プロンプト'
+        value: ${{ jobs.planning.outputs.image-prompt-2 }}
+      image-prompt-3:
+        description: '動画3用画像生成プロンプト'
+        value: ${{ jobs.planning.outputs.image-prompt-3 }}
+      image-prompt-4:
+        description: '動画4用画像生成プロンプト'
+        value: ${{ jobs.planning.outputs.image-prompt-4 }}
+      image-prompt-5:
+        description: '動画5用画像生成プロンプト'
+        value: ${{ jobs.planning.outputs.image-prompt-5 }}
+      image-prompt-6:
+        description: '動画6用画像生成プロンプト'
+        value: ${{ jobs.planning.outputs.image-prompt-6 }}
+      image-prompt-7:
+        description: '動画7用画像生成プロンプト'
+        value: ${{ jobs.planning.outputs.image-prompt-7 }}
+      image-prompt-8:
+        description: '動画8用画像生成プロンプト'
+        value: ${{ jobs.planning.outputs.image-prompt-8 }}
+      video-concept-1:
+        description: '動画1用コンセプト'
+        value: ${{ jobs.planning.outputs.video-concept-1 }}
+      video-concept-2:
+        description: '動画2用コンセプト'
+        value: ${{ jobs.planning.outputs.video-concept-2 }}
+      video-concept-3:
+        description: '動画3用コンセプト'
+        value: ${{ jobs.planning.outputs.video-concept-3 }}
+      video-concept-4:
+        description: '動画4用コンセプト'
+        value: ${{ jobs.planning.outputs.video-concept-4 }}
+      video-concept-5:
+        description: '動画5用コンセプト'
+        value: ${{ jobs.planning.outputs.video-concept-5 }}
+      video-concept-6:
+        description: '動画6用コンセプト'
+        value: ${{ jobs.planning.outputs.video-concept-6 }}
+      video-concept-7:
+        description: '動画7用コンセプト'
+        value: ${{ jobs.planning.outputs.video-concept-7 }}
+      video-concept-8:
+        description: '動画8用コンセプト'
+        value: ${{ jobs.planning.outputs.video-concept-8 }}
+    secrets:
+      gemini_api_key:
+        description: 'Gemini API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  planning:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      planning-completed: ${{ steps.verify.outputs.completed }}
+      # 動的出力（最大8動画まで対応）
+      image-prompt-1: ${{ steps.verify.outputs.image-prompt-1 }}
+      image-prompt-2: ${{ steps.verify.outputs.image-prompt-2 }}
+      image-prompt-3: ${{ steps.verify.outputs.image-prompt-3 }}
+      image-prompt-4: ${{ steps.verify.outputs.image-prompt-4 }}
+      image-prompt-5: ${{ steps.verify.outputs.image-prompt-5 }}
+      image-prompt-6: ${{ steps.verify.outputs.image-prompt-6 }}
+      image-prompt-7: ${{ steps.verify.outputs.image-prompt-7 }}
+      image-prompt-8: ${{ steps.verify.outputs.image-prompt-8 }}
+      video-concept-1: ${{ steps.verify.outputs.video-concept-1 }}
+      video-concept-2: ${{ steps.verify.outputs.video-concept-2 }}
+      video-concept-3: ${{ steps.verify.outputs.video-concept-3 }}
+      video-concept-4: ${{ steps.verify.outputs.video-concept-4 }}
+      video-concept-5: ${{ steps.verify.outputs.video-concept-5 }}
+      video-concept-6: ${{ steps.verify.outputs.video-concept-6 }}
+      video-concept-7: ${{ steps.verify.outputs.video-concept-7 }}
+      video-concept-8: ${{ steps.verify.outputs.video-concept-8 }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+          
+      - name: 📋 プロンプト計画エージェント (Gemini)
+        id: planning
+        uses: google-gemini/gemini-cli-action@main
+        with:
+          GEMINI_API_KEY: ${{ secrets.gemini_api_key }}
+          prompt: |
+            📋 **プロンプト計画タスク - Gemini Planning エージェント**
+            
+            **基本コンセプト**: ${{ inputs.concept }}
+            **生成する動画数**: ${{ inputs.total_videos }}
+            
+            **タスク**: 基本コンセプトから${{ inputs.total_videos }}つの動画を生成するための詳細な計画を立案
+            
+            **全体戦略**:
+            - ${{ inputs.total_videos }}つの動画で一つのテーマを表現
+            - 各動画は独立した魅力を持つ
+            - 異なる視点・アングル・表現で差別化
+            - 統一感のあるビジュアルコンセプト
+            
+            **各動画の方向性**:
+            - 動画1: メインアングル、正面からの基本動作・表現
+            - 動画2: サイドアングル、横からの動的表現
+            - 動画3: 上からの俯瞰、全体の動きを強調
+            - 動画4: クローズアップ、細部の魅力を表現
+            - 動画5以降: 創造的な視点での独自表現
+            
+            **実行手順**:
+            1. **ディレクトリ作成**:
+               ```bash
+               mkdir -p ${{ inputs.folder-name }}/planning
+               ```
+               
+            2. **基本コンセプトの分析**:
+               - 主要な要素（オブジェクト、アクション、設定、スタイル）を抽出
+               - 視覚的特徴を明確化
+               - 動きの要素を特定
+               
+            3. **各動画用の画像生成プロンプト作成**:
+               - Imagen4 Fast に最適化
+               - 各動画の特性に最適化された内容
+               - 視覚的要素（色彩、構図、スタイル）を明確に指定
+               - 高解像度・高品質を意識した記述
+               - 50-100語程度の適切な長さ
+               - **重要**: 画像生成プロンプトは英語で作成してください
+               
+            4. **各動画用のコンセプト作成**:
+               - 生成される画像をベースにした動画の方向性
+               - 各動画固有の動きやアニメーションの種類
+               - 雰囲気や感情表現
+               - Hailuo-02 Pro での動画生成に適した内容
+               
+            5. **プロンプト保存**:
+               ```
+               write_file(${{ inputs.folder-name }}/planning/video-plan.md, 計画書)
+               write_file(${{ inputs.folder-name }}/planning/image-prompt-1.md, 動画1用画像生成プロンプト)
+               write_file(${{ inputs.folder-name }}/planning/image-prompt-2.md, 動画2用画像生成プロンプト)
+               write_file(${{ inputs.folder-name }}/planning/video-concept-1.md, 動画1用コンセプト)
+               write_file(${{ inputs.folder-name }}/planning/video-concept-2.md, 動画2用コンセプト)
+               # 以下、動画数分
+               ```
+               
+            **重要**: 
+            1. 必ず${{ inputs.total_videos }}個分のファイルを作成してください
+            2. mdファイルは1行のテキストのみで作成してください
+            3. 各ファイルの内容は具体的で詳細に記述してください
+            4. ファイル作成後、必ずファイルパスを確認・報告してください
+            
+      - name: Verify planning results
+        id: verify
+        run: |
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          TOTAL_VIDEOS="${{ inputs.total_videos }}"
+          
+          echo "📋 Checking generated planning files..."
+          
+          # 各動画用のファイルから出力を設定
+          for i in $(seq 1 $TOTAL_VIDEOS); do
+            # 画像プロンプトの確認
+            if [ -f "$FOLDER_NAME/planning/image-prompt-${i}.md" ]; then
+              IMAGE_PROMPT=$(cat "$FOLDER_NAME/planning/image-prompt-${i}.md" | tr '\n' ' ')
+              echo "✅ Image prompt ${i} generated: $IMAGE_PROMPT"
+              echo "image-prompt-${i}=$IMAGE_PROMPT" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Image prompt ${i} file not found"
+              exit 1
+            fi
+            
+            # 動画コンセプトの確認
+            if [ -f "$FOLDER_NAME/planning/video-concept-${i}.md" ]; then
+              VIDEO_CONCEPT=$(head -5 "$FOLDER_NAME/planning/video-concept-${i}.md" | tr '\n' ' ')
+              echo "✅ Video concept ${i} generated: $VIDEO_CONCEPT"
+              echo "video-concept-${i}=$VIDEO_CONCEPT" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Video concept ${i} file not found"
+              exit 1
+            fi
+          done
+          
+          echo "completed=true" >> $GITHUB_OUTPUT
+          
+      - name: Commit planning results
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No planning files to commit"
+          else
+            git commit -m "📋 Add planning results: ${{ inputs.concept }}
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi

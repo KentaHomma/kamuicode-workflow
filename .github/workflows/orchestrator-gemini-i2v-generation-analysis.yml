@@ -1,0 +1,98 @@
+name: Orchestrator - Gemini I2V Generation & Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  setup-branch:
+    uses: ./.github/workflows/module-setup-branch.yml
+    with:
+      concept: ${{ inputs.concept }}
+      project_prefix: gemini-i2v
+
+  planning:
+    needs: setup-branch
+    uses: ./.github/workflows/module-planning-gca.yml
+    with:
+      concept: ${{ inputs.concept }}
+      branch-name: ${{ needs.setup-branch.outputs.branch-name }}
+      folder-name: ${{ needs.setup-branch.outputs.folder-name }}
+      total_videos: '1'
+    secrets:
+      gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  generate-image:
+    needs: [setup-branch, planning]
+    uses: ./.github/workflows/module-image-generation-kc-t2i-fal-imagen4-fast-gca.yml
+    with:
+      concept: ${{ inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.image-prompt-1 }}
+      branch-name: ${{ needs.setup-branch.outputs.branch-name }}
+      folder-name: ${{ needs.setup-branch.outputs.folder-name }}
+      video_index: '1'
+    secrets:
+      gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  generate-video:
+    needs: [setup-branch, planning, generate-image]
+    uses: ./.github/workflows/module-video-generation-kc-i2v-fal-hailuo-02-pro-gca.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-prompt: ${{ needs.planning.outputs.video-concept-1 }}
+      image-url: ${{ needs.generate-image.outputs.image-url }}
+      branch-name: ${{ needs.setup-branch.outputs.branch-name }}
+      folder-name: ${{ needs.setup-branch.outputs.folder-name }}
+      video_index: '1'
+    secrets:
+      gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  analyze-video:
+    needs: [setup-branch, planning, generate-image, generate-video]
+    uses: ./.github/workflows/module-video-analysis-gca.yml
+    with:
+      concept: ${{ inputs.concept }}
+      image-url: ${{ needs.generate-image.outputs.image-url }}
+      video-url: ${{ needs.generate-video.outputs.video-url }}
+      image-prompt: ${{ needs.planning.outputs.image-prompt-1 }}
+      video-prompt: ${{ needs.planning.outputs.video-concept-1 }}
+      branch-name: ${{ needs.setup-branch.outputs.branch-name }}
+      folder-name: ${{ needs.setup-branch.outputs.folder-name }}
+      video_index: '1'
+    secrets:
+      gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  create-summary:
+    needs: [setup-branch, generate-video, analyze-video]
+    if: always()
+    uses: ./.github/workflows/module-create-summary.yml
+    with:
+      concept: ${{ inputs.concept }}
+      branch-name: ${{ needs.setup-branch.outputs.branch-name }}
+      folder-name: ${{ needs.setup-branch.outputs.folder-name }}
+    secrets:
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  create-pull-request:
+    needs: [setup-branch, create-summary]
+    if: always()
+    uses: ./.github/workflows/module-create-pr.yml
+    with:
+      concept: ${{ inputs.concept }}
+      branch-name: ${{ needs.setup-branch.outputs.branch-name }}
+      folder-name: ${{ needs.setup-branch.outputs.folder-name }}
+    secrets:
+      github_pat: ${{ secrets.PAT_TOKEN }}

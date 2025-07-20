@@ -1,0 +1,209 @@
+name: orchestrator-banner-advertisement-creation
+
+on:
+  workflow_dispatch:
+    inputs:
+      concept:
+        description: 'バナーのコンセプト（例：夏のセール告知、新商品プロモーション）'
+        required: true
+        type: string
+      text_content:
+        description: '画像に表示するテキスト（英語、数字）'
+        required: true
+        type: string
+      banner_size:
+        description: 'バナーサイズ'
+        required: false
+        type: choice
+        default: 'square_1_1'
+        options:
+          - 'square_1_1'
+          - 'landscape_16_9'
+          - 'portrait_9_16'
+      total_banners:
+        description: '生成するバナーの数（1-4）'
+        required: false
+        type: string
+        default: '1'
+
+jobs:
+  # Phase 1: ブランチとフォルダのセットアップ
+  setup:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-setup-branch.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      project_prefix: 'banner'
+
+  # Phase 2: バナー制作計画
+  planning:
+    needs: setup
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-banner-planning-ccsdk.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      text_content: ${{ github.event.inputs.text_content }}
+      banner_size: ${{ github.event.inputs.banner_size }}
+      total_banners: ${{ github.event.inputs.total_banners }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # Phase 3: ベース画像生成（バナー1）
+  base-image-generation-1:
+    needs: [setup, planning]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-image-generation-kc-t2i-fal-imagen4-ultra-ccsdk.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.base-image-prompt-1 }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+      video_index: '1'
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # Phase 4: テキストオーバーレイ（バナー1）
+  text-overlay-1:
+    needs: [setup, planning, base-image-generation-1]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-banner-text-overlay-kc-i2i-fal-flux-kontext-max-ccsdk.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      text_content: ${{ github.event.inputs.text_content }}
+      image-url: ${{ needs.base-image-generation-1.outputs.image-url }}
+      text-layout-strategy: ${{ needs.planning.outputs.text-layout-strategy-1 }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+      banner_index: '1'
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # Phase 3-4: バナー2の生成（total_banners >= 2の場合）
+  base-image-generation-2:
+    needs: [setup, planning]
+    if: ${{ fromJSON(github.event.inputs.total_banners) >= 2 }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-image-generation-kc-t2i-fal-imagen4-ultra-ccsdk.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.base-image-prompt-2 }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+      video_index: '2'
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  text-overlay-2:
+    needs: [setup, planning, base-image-generation-2]
+    if: ${{ fromJSON(github.event.inputs.total_banners) >= 2 }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-banner-text-overlay-kc-i2i-fal-flux-kontext-max-ccsdk.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      text_content: ${{ github.event.inputs.text_content }}
+      image-url: ${{ needs.base-image-generation-2.outputs.image-url }}
+      text-layout-strategy: ${{ needs.planning.outputs.text-layout-strategy-2 }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+      banner_index: '2'
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # Phase 3-4: バナー3の生成（total_banners >= 3の場合）
+  base-image-generation-3:
+    needs: [setup, planning]
+    if: ${{ fromJSON(github.event.inputs.total_banners) >= 3 }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-image-generation-kc-t2i-fal-imagen4-ultra-ccsdk.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.base-image-prompt-3 }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+      video_index: '3'
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  text-overlay-3:
+    needs: [setup, planning, base-image-generation-3]
+    if: ${{ fromJSON(github.event.inputs.total_banners) >= 3 }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-banner-text-overlay-kc-i2i-fal-flux-kontext-max-ccsdk.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      text_content: ${{ github.event.inputs.text_content }}
+      image-url: ${{ needs.base-image-generation-3.outputs.image-url }}
+      text-layout-strategy: ${{ needs.planning.outputs.text-layout-strategy-3 }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+      banner_index: '3'
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # Phase 3-4: バナー4の生成（total_banners >= 4の場合）
+  base-image-generation-4:
+    needs: [setup, planning]
+    if: ${{ fromJSON(github.event.inputs.total_banners) >= 4 }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-image-generation-kc-t2i-fal-imagen4-ultra-ccsdk.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.base-image-prompt-4 }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+      video_index: '4'
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  text-overlay-4:
+    needs: [setup, planning, base-image-generation-4]
+    if: ${{ fromJSON(github.event.inputs.total_banners) >= 4 }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/module-banner-text-overlay-kc-i2i-fal-flux-kontext-max-ccsdk.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      text_content: ${{ github.event.inputs.text_content }}
+      image-url: ${{ needs.base-image-generation-4.outputs.image-url }}
+      text-layout-strategy: ${{ needs.planning.outputs.text-layout-strategy-4 }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+      banner_index: '4'
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # Phase 5: プルリクエスト作成
+  create-pr:
+    needs: [setup, planning, text-overlay-1, text-overlay-2, text-overlay-3, text-overlay-4]
+    if: always() && (needs.text-overlay-1.result == 'success' || needs.text-overlay-2.result == 'success' || needs.text-overlay-3.result == 'success' || needs.text-overlay-4.result == 'success')
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    uses: ./.github/workflows/module-create-pr.yml
+    with:
+      concept: ${{ github.event.inputs.concept }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      github_pat: ${{ secrets.PAT_TOKEN }}

@@ -1,0 +1,48 @@
+name: module-setup-branch
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      project_prefix:
+        description: 'プロジェクトのプレフィックス'
+        required: false
+        type: string
+        default: 'video'
+    outputs:
+      branch-name:
+        description: '作成されたブランチ名'
+        value: ${{ jobs.setup.outputs.branch-name }}
+      folder-name:
+        description: '作成されたフォルダ名'
+        value: ${{ jobs.setup.outputs.folder-name }}
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      branch-name: ${{ steps.create-branch.outputs.branch-name }}
+      folder-name: ${{ steps.create-branch.outputs.folder-name }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Create branch for video generation
+        id: create-branch
+        run: |
+          BRANCH_NAME="${{ inputs.project_prefix }}/$(date +%Y%m%d)-${{ github.run_id }}"
+          FOLDER_NAME="${{ inputs.project_prefix }}-$(date +%Y%m%d)-${{ github.run_id }}"
+          git checkout -b $BRANCH_NAME
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git push origin $BRANCH_NAME
+          echo "branch-name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          echo "folder-name=$FOLDER_NAME" >> $GITHUB_OUTPUT
+          echo "Created branch: $BRANCH_NAME"
+          echo "Folder name: $FOLDER_NAME"

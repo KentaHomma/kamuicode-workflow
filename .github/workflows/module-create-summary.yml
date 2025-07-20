@@ -1,0 +1,80 @@
+name: module-create-summary
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+    secrets:
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  create-summary:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+          
+      - name: Create summary
+        run: |
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          cat > "$FOLDER_NAME/README.md" << EOF
+          # Gemini Image-to-Video Generation & Analysis Results
+          
+          ## Overview
+          - **Base Concept**: ${{ inputs.concept }}
+          - **Generated At**: $(date)
+          - **Branch**: ${{ inputs.branch-name }}
+          
+          ## Generated Content
+          - **Planning**: \`planning/\` directory
+          - **Image**: \`images/image.png\`
+          - **Video**: \`videos/video.mp4\`
+          - **Analysis**: \`analysis/video-analysis.md\`
+          
+          ## Generation Pipeline
+          1. ✅ Planning: Image & Video prompt optimization
+          2. ✅ Image Generation: Imagen4 Fast
+          3. ✅ Video Generation: Hailuo-02 Pro (I2V)
+          4. ✅ Video Analysis: Gemini Vision
+          
+          ---
+          🤖 Generated with [Claude Code](https://claude.ai/code)
+          EOF
+          
+      - name: Commit summary
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No summary files to commit"
+          else
+            git commit -m "📝 Add workflow summary: ${{ inputs.concept }}
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi

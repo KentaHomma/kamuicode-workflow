@@ -1,0 +1,212 @@
+name: module-create-pr
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+    secrets:
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+      
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          # ブランチ名を取得
+          BRANCH_NAME="${{ inputs.branch-name }}"
+          
+          # 変更をコミット
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 最終成果物の確認とコミット
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          echo "=== Final Generation Summary ==="
+          echo "Project folder: $FOLDER_NAME"
+          
+          IMAGES_COUNT=0
+          VIDEOS_COUNT=0
+          BANNERS_COUNT=0
+          
+          if [ -d "$FOLDER_NAME" ]; then
+            echo "✅ Project folder exists: $FOLDER_NAME"
+            
+            # 画像ファイルの確認（動的ディレクトリ対応）
+            IMAGES_COUNT=$(find "$FOLDER_NAME" -name "images-*" -type d -exec find {} -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" \; 2>/dev/null | wc -l)
+            if [ "$IMAGES_COUNT" -gt 0 ]; then
+              echo "✅ Images directories exist with $IMAGES_COUNT files"
+            fi
+            
+            # バナー画像ファイルの確認（動的ディレクトリ対応）
+            BANNERS_COUNT=$(find "$FOLDER_NAME" -name "banners-*" -type d -exec find {} -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" \; 2>/dev/null | wc -l)
+            if [ "$BANNERS_COUNT" -gt 0 ]; then
+              echo "✅ Banner directories exist with $BANNERS_COUNT files"
+            fi
+            
+            # 動画ファイルの確認（動的ディレクトリ対応）
+            VIDEOS_COUNT=$(find "$FOLDER_NAME" -name "videos-*" -type d -exec find {} -name "*.mp4" -o -name "*.mov" -o -name "*.avi" \; 2>/dev/null | wc -l)
+            if [ "$VIDEOS_COUNT" -gt 0 ]; then
+              echo "✅ Videos directories exist with $VIDEOS_COUNT files"
+            fi
+          fi
+          
+          # すべてのファイルをコミット
+          git add "$FOLDER_NAME/" 2>/dev/null || true
+          
+          # コミットメッセージを作成
+          COMMIT_MESSAGE="Add new AI-generated content: ${{ inputs.concept }}
+          
+          コンセプト: ${{ inputs.concept }}
+          生成日時: $(date -u +%Y-%m-%d\ %H:%M:%S)\ UTC
+          
+          📊 Generation Summary:
+          - Images: $IMAGES_COUNT files (Imagen4 Ultra)
+          - Banners: $BANNERS_COUNT files (Flux Kontext Max)
+          - Videos: $VIDEOS_COUNT files (Vidu Q1)
+          
+          🤖 Generated with Claude Code SDK & kamuicode MCP
+          Co-Authored-By: Claude <noreply@anthropic.com>"
+          
+          # コミット
+          if git diff --cached --quiet; then
+            echo "Warning: No changes to commit"
+            git commit --allow-empty -m "$COMMIT_MESSAGE"
+          else
+            git commit -m "$COMMIT_MESSAGE"
+          fi
+          
+          # リベースしてからプッシュ（並列実行での競合を回避）
+          git pull --rebase origin $BRANCH_NAME || true
+          git push origin $BRANCH_NAME
+          
+          # 生成されたファイルのパス取得
+          GENERATED_IMAGE_PATH=""
+          GENERATED_VIDEO_PATH=""
+          
+          if [ "$IMAGES_COUNT" -gt 0 ]; then
+            GENERATED_IMAGE_PATH=$(find "$FOLDER_NAME" -name "images-*" -type d -exec find {} -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" \; 2>/dev/null | head -1)
+          fi
+          
+          if [ "$VIDEOS_COUNT" -gt 0 ]; then
+            GENERATED_VIDEO_PATH=$(find "$FOLDER_NAME" -name "videos-*" -type d -exec find {} -name "*.mp4" -o -name "*.mov" -o -name "*.avi" \; 2>/dev/null | head -1)
+          fi
+          
+          # プルリクエスト用のボディを作成
+          PR_BODY="🤖 Claude Code SDK & kamuicode MCPを使用して自動生成されたコンテンツです.
+
+          コンセプト: ${{ inputs.concept }}
+
+          成果物:
+          
+          画像: $IMAGES_COUNT ファイル
+          バナー: $BANNERS_COUNT ファイル
+          動画: $VIDEOS_COUNT ファイル"
+          
+          # 全ての画像をプルリクに埋め込み
+          if [ "$IMAGES_COUNT" -gt 0 ]; then
+            PR_BODY="$PR_BODY"$'\n\n'"## 🎨 生成された画像"
+            IMAGE_INDEX=1
+            find "$FOLDER_NAME" -name "images-*" -type d | sort | while read -r IMAGE_DIR; do
+              IMAGE_FILE=$(find "$IMAGE_DIR" -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" 2>/dev/null | head -1)
+              if [ -n "$IMAGE_FILE" ] && [ -f "$IMAGE_FILE" ]; then
+                GITHUB_IMAGE_URL="https://github.com/${{ github.repository }}/raw/$BRANCH_NAME/$IMAGE_FILE"
+                if [ "$IMAGES_COUNT" -gt 1 ]; then
+                  echo "### 画像 $IMAGE_INDEX" >> /tmp/pr_images.txt
+                fi
+                echo "![Generated Image $IMAGE_INDEX]($GITHUB_IMAGE_URL)" >> /tmp/pr_images.txt
+                echo "" >> /tmp/pr_images.txt
+                IMAGE_INDEX=$((IMAGE_INDEX + 1))
+              fi
+            done
+            if [ -f /tmp/pr_images.txt ]; then
+              PR_BODY="$PR_BODY"$'\n'"$(cat /tmp/pr_images.txt)"
+            fi
+          fi
+          
+          # 全てのバナー画像をプルリクに埋め込み
+          if [ "$BANNERS_COUNT" -gt 0 ]; then
+            PR_BODY="$PR_BODY"$'\n\n'"## 📄 生成されたバナー"
+            BANNER_INDEX=1
+            find "$FOLDER_NAME" -name "banners-*" -type d | sort | while read -r BANNER_DIR; do
+              BANNER_FILE=$(find "$BANNER_DIR" -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" 2>/dev/null | head -1)
+              if [ -n "$BANNER_FILE" ] && [ -f "$BANNER_FILE" ]; then
+                GITHUB_BANNER_URL="https://github.com/${{ github.repository }}/raw/$BRANCH_NAME/$BANNER_FILE"
+                if [ "$BANNERS_COUNT" -gt 1 ]; then
+                  echo "### バナー $BANNER_INDEX" >> /tmp/pr_banners.txt
+                fi
+                echo "![Generated Banner $BANNER_INDEX]($GITHUB_BANNER_URL)" >> /tmp/pr_banners.txt
+                echo "" >> /tmp/pr_banners.txt
+                echo "📁 **ファイルパス**: \`$BANNER_FILE\`" >> /tmp/pr_banners.txt
+                echo "" >> /tmp/pr_banners.txt
+                BANNER_INDEX=$((BANNER_INDEX + 1))
+              fi
+            done
+            if [ -f /tmp/pr_banners.txt ]; then
+              PR_BODY="$PR_BODY"$'\n'"$(cat /tmp/pr_banners.txt)"
+            fi
+          fi
+          
+          # 全ての動画をプルリクに埋め込み
+          if [ "$VIDEOS_COUNT" -gt 0 ]; then
+            PR_BODY="$PR_BODY"$'\n\n'"## 🎬 生成された動画"
+            VIDEO_INDEX=1
+            find "$FOLDER_NAME" -name "videos-*" -type d | sort | while read -r VIDEO_DIR; do
+              VIDEO_FILE=$(find "$VIDEO_DIR" -name "*.mp4" -o -name "*.mov" -o -name "*.avi" 2>/dev/null | head -1)
+              if [ -n "$VIDEO_FILE" ] && [ -f "$VIDEO_FILE" ]; then
+                GITHUB_VIDEO_URL="https://github.com/${{ github.repository }}/raw/$BRANCH_NAME/$VIDEO_FILE"
+                if [ "$VIDEOS_COUNT" -gt 1 ]; then
+                  echo "### 動画 $VIDEO_INDEX" >> /tmp/pr_videos.txt
+                fi
+                echo "<video width=\"640\" height=\"480\" controls>" >> /tmp/pr_videos.txt
+                echo "  <source src=\"$GITHUB_VIDEO_URL\" type=\"video/mp4\">" >> /tmp/pr_videos.txt
+                echo "  お使いのブラウザは動画タグをサポートしていません。" >> /tmp/pr_videos.txt
+                echo "  <a href=\"$GITHUB_VIDEO_URL\">動画をダウンロードして再生</a>" >> /tmp/pr_videos.txt
+                echo "</video>" >> /tmp/pr_videos.txt
+                echo "" >> /tmp/pr_videos.txt
+                echo "📁 **ファイルパス**: \`$VIDEO_FILE\`" >> /tmp/pr_videos.txt
+                echo "" >> /tmp/pr_videos.txt
+                VIDEO_INDEX=$((VIDEO_INDEX + 1))
+              fi
+            done
+            if [ -f /tmp/pr_videos.txt ]; then
+              PR_BODY="$PR_BODY"$'\n'"$(cat /tmp/pr_videos.txt)"
+            fi
+          fi
+          
+          PR_BODY="$PR_BODY
+
+          ---
+          🤖 Generated with [Claude Code SDK & kamuicode MCP](https://github.com/AI-Summoner/ai-summoner)"
+          
+          # PR作成
+          gh pr create \
+            --title "新しいAI生成コンテンツ: ${{ inputs.concept }}" \
+            --body "$PR_BODY" \
+            --base main \
+            --head $BRANCH_NAME

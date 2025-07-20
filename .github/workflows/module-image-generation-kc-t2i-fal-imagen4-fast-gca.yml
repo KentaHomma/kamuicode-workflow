@@ -1,0 +1,160 @@
+name: module-image-generation-kc-t2i-fal-imagen4-fast-gca
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      image-prompt:
+        description: '画像生成用プロンプト'
+        required: true
+        type: string
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      video_index:
+        description: '動画インデックス'
+        required: false
+        type: string
+        default: '1'
+    outputs:
+      image-url:
+        description: '画像URL'
+        value: ${{ jobs.image-generation.outputs.image-url }}
+      completed:
+        description: '完了ステータス'
+        value: ${{ jobs.image-generation.outputs.completed }}
+    secrets:
+      gemini_api_key:
+        description: 'Gemini API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  image-generation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      image-url: ${{ steps.verify.outputs.image-url }}
+      completed: ${{ steps.verify.outputs.completed }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+          
+      - name: 🖼️ 画像生成エージェント (Imagen4 Fast)
+        id: generate
+        uses: google-gemini/gemini-cli-action@main
+        with:
+          GEMINI_API_KEY: ${{ secrets.gemini_api_key }}
+          prompt: |
+            🖼️ **画像生成タスク**
+            
+            **プロンプト**: ${{ inputs.image-prompt }}
+            
+            **手順**:
+            1. ディレクトリ作成: 
+               ```bash
+               mkdir -p ${{ inputs.folder-name }}/images-${{ inputs.video_index }}
+               ```
+            
+            2. **重要**: kamuicodeの正しい手順でt2i-fal-imagen4-fastを使用:
+               - `mcp__t2i-fal-imagen4-fast__imagen4_fast_submit` で画像生成開始
+               - `mcp__t2i-fal-imagen4-fast__imagen4_fast_status` でステータス確認  
+               - `mcp__t2i-fal-imagen4-fast__imagen4_fast_result` で結果取得（URLのみ）
+            
+            3. **重要**: MCPサーバーがcurlコマンドを表示するが、**実行はされていない**
+               - "Download command: curl -o ..." は提案であり、実行済みではない
+               - 必ず表示されたcurlコマンドを実際に実行すること
+            
+            4. **ダウンロード実行**: 
+               - MCPサーバーが表示するcurlコマンドは無視
+               - 絶対パスを使用して以下のコマンドを実行:
+               ```bash
+               curl -L -o "$(pwd)/${{ inputs.folder-name }}/images-${{ inputs.video_index }}/image.png" "[resultツールで取得した画像URL]"
+               ls -la "$(pwd)/${{ inputs.folder-name }}/images-${{ inputs.video_index }}/image.png"
+               ```
+            
+            5. **画像URL保存（必須）**:
+               - **重要**: 取得した画像URLを必ずファイルに保存すること:
+               ```bash
+               echo "[resultツールで取得した画像URL]" > "${{ inputs.folder-name }}/images-${{ inputs.video_index }}/image-url.txt"
+               cat "${{ inputs.folder-name }}/images-${{ inputs.video_index }}/image-url.txt"
+               ```
+            
+            **重要**: 
+            - MCPサーバーはcurlコマンドを表示するだけ（実行しない）
+            - 必ず実際にcurlコマンドを実行してファイルをダウンロード
+            - ファイル名はimage.pngに統一（拡張子注意）
+            
+      - name: Verify image generation
+        id: verify
+        run: |
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          VIDEO_INDEX="${{ inputs.video_index }}"
+          IMAGES_DIR="$FOLDER_NAME/images-${VIDEO_INDEX}"
+          IMAGE_PATH="$IMAGES_DIR/image.png"
+          IMAGE_URL_FILE="$IMAGES_DIR/image-url.txt"
+          
+          echo "🔍 Checking image generation results..."
+          echo "Expected image path: $IMAGE_PATH"
+          echo "Expected URL file: $IMAGE_URL_FILE"
+          
+          # ディレクトリ構造の確認
+          echo "Directory structure:"
+          ls -la "$FOLDER_NAME/" || echo "Folder not found: $FOLDER_NAME"
+          ls -la "$IMAGES_DIR/" || echo "Images folder not found: $IMAGES_DIR"
+          
+          if [ -f "$IMAGE_PATH" ]; then
+            IMAGE_SIZE=$(stat -c%s "$IMAGE_PATH" 2>/dev/null || stat -f%z "$IMAGE_PATH" 2>/dev/null || echo "unknown")
+            echo "✅ Image generated successfully: $IMAGE_PATH ($IMAGE_SIZE bytes)"
+            
+            # 画像URLの確認と出力設定
+            if [ -f "$IMAGE_URL_FILE" ]; then
+              IMAGE_URL=$(cat "$IMAGE_URL_FILE")
+              echo "✅ Image URL found: $IMAGE_URL"
+              echo "image-url=$IMAGE_URL" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Image URL file not found: $IMAGE_URL_FILE"
+              exit 1
+            fi
+          else
+            echo "❌ Image not found at expected path: $IMAGE_PATH"
+            echo "Available files in images directory:"
+            find "$FOLDER_NAME" -type f -name "*.jpg" -o -name "*.png" -o -name "*.jpeg" || echo "No image files found"
+            exit 1
+          fi
+          
+          echo "completed=true" >> $GITHUB_OUTPUT
+          
+      - name: Commit generated image
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No image files to commit"
+          else
+            git commit -m "🖼️ Add generated Imagen4 image: ${{ inputs.concept }}
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi

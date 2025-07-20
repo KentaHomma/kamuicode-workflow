@@ -1,0 +1,131 @@
+name: orchestrator-video-generation-dual
+
+on:
+  workflow_dispatch:
+    inputs:
+      concept:
+        description: '動画のコンセプト（2つの動画を生成）'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  # 1. ブランチ・フォルダセットアップ
+  setup:
+    uses: ./.github/workflows/module-setup-branch.yml
+    with:
+      concept: ${{ inputs.concept }}
+      project_prefix: 'dual-video'
+
+  # 2. AI企画（2動画用）
+  planning:
+    needs: setup
+    uses: ./.github/workflows/module-planning-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      total_videos: '2'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 3. 画像生成（2つ並列）
+  image-generation-1:
+    needs: [setup, planning]
+    uses: ./.github/workflows/module-image-generation-kc-t2i-fal-imagen4-ultra-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.image-prompt-1 }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  image-generation-2:
+    needs: [setup, planning]
+    uses: ./.github/workflows/module-image-generation-kc-t2i-fal-imagen4-ultra-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.image-prompt-2 }}
+      video_index: '2'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 4. 動画プロンプト最適化（2つ並列）
+  video-prompt-optimization-1:
+    needs: [setup, planning, image-generation-1]
+    uses: ./.github/workflows/module-video-prompt-optimization-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-concept: ${{ needs.planning.outputs.video-concept-1 }}
+      image-url: ${{ needs.image-generation-1.outputs.image-url }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  video-prompt-optimization-2:
+    needs: [setup, planning, image-generation-2]
+    uses: ./.github/workflows/module-video-prompt-optimization-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-concept: ${{ needs.planning.outputs.video-concept-2 }}
+      image-url: ${{ needs.image-generation-2.outputs.image-url }}
+      video_index: '2'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 5. 動画生成（2つ並列）
+  video-generation-1:
+    needs: [setup, video-prompt-optimization-1, image-generation-1]
+    uses: ./.github/workflows/module-video-generation-kc-r2v-fal-vidu-q1-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-prompt: ${{ needs.video-prompt-optimization-1.outputs.video-prompt }}
+      image-url: ${{ needs.image-generation-1.outputs.image-url }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  video-generation-2:
+    needs: [setup, video-prompt-optimization-2, image-generation-2]
+    uses: ./.github/workflows/module-video-generation-kc-r2v-fal-vidu-q1-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-prompt: ${{ needs.video-prompt-optimization-2.outputs.video-prompt }}
+      image-url: ${{ needs.image-generation-2.outputs.image-url }}
+      video_index: '2'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 6. PR作成
+  create-pr:
+    needs: [setup, video-generation-1, video-generation-2]
+    uses: ./.github/workflows/module-create-pr.yml
+    with:
+      concept: ${{ inputs.concept }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      github_pat: ${{ secrets.PAT_TOKEN }}

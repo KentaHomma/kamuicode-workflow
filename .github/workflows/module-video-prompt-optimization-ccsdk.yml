@@ -1,0 +1,181 @@
+name: module-video-prompt-optimization-ccsdk
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      video-concept:
+        description: '動画コンセプト'
+        required: true
+        type: string
+      image-url:
+        description: '画像URL'
+        required: true
+        type: string
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      video_index:
+        description: '動画インデックス'
+        required: false
+        type: string
+        default: '1'
+    outputs:
+      completed:
+        description: '完了ステータス'
+        value: ${{ jobs.optimization.outputs.completed }}
+      video-prompt:
+        description: '最適化された動画プロンプト'
+        value: ${{ jobs.optimization.outputs.video-prompt }}
+    secrets:
+      anthropic_api_key:
+        description: 'Anthropic API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  optimization:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      completed: ${{ steps.optimization.outputs.completed }}
+      video-prompt: ${{ steps.optimization.outputs.video-prompt }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Claude Code SDK
+        run: npm install @anthropic-ai/claude-code
+      
+      - name: 動画プロンプト最適化エージェント
+        id: optimization
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+        run: |
+          echo "::group::🎬 Video Prompt Optimization Agent Execution"
+          echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+          
+          # 設定
+          USER_CONCEPT="${{ inputs.concept }}"
+          VIDEO_CONCEPT="${{ inputs.video-concept }}"
+          GOOGLE_IMAGE_URL="${{ inputs.image-url }}"
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          VIDEO_INDEX="${{ inputs.video_index }}"
+          IMAGES_DIR="$FOLDER_NAME/images-${VIDEO_INDEX}"
+          OPTIMIZATION_DIR="$FOLDER_NAME/optimization-${VIDEO_INDEX}"
+          
+          echo "Video index: $VIDEO_INDEX"
+          echo "Images folder: $IMAGES_DIR"
+          echo "Optimization folder: $OPTIMIZATION_DIR"
+          
+          # 最適化フォルダを事前に作成
+          if [ ! -d "$OPTIMIZATION_DIR" ]; then
+            mkdir -p "$OPTIMIZATION_DIR"
+            echo "📁 Created optimization folder: $OPTIMIZATION_DIR"
+          fi
+          
+          # 生成された画像の確認
+          GENERATED_IMAGE=$(find "$IMAGES_DIR" -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" | head -1)
+          if [ -z "$GENERATED_IMAGE" ]; then
+            echo "::error::❌ No generated images found"
+            exit 1
+          fi
+          
+          # プロンプトの構築
+          PROMPT="あなたは動画生成の専門家です。生成された画像を分析し、Vidu Q1での動画生成に最適なプロンプトを作成してください。
+
+          **元のユーザー指示**: $USER_CONCEPT
+          **初期動画コンセプト**: $VIDEO_CONCEPT
+          **生成済み画像ファイル**: $GENERATED_IMAGE
+          **画像URL**: $GOOGLE_IMAGE_URL
+
+          **タスク**:
+          1. 生成された画像ファイルを読み込んで内容を分析
+          2. 画像の視覚的要素（色彩、構図、オブジェクト、スタイル）を詳細に把握
+          3. 初期動画コンセプトと画像内容を照合
+          4. Vidu Q1での動画生成に最適化されたプロンプトを作成
+          5. 最適化プロンプトを「$OPTIMIZATION_DIR/video-prompt.txt」に保存
+          6. 最適化プロンプトを「$OPTIMIZATION_DIR/video-prompt.md」に保存（ユーザー確認用）
+          7. 分析レポートを「$OPTIMIZATION_DIR/analysis.md」に保存
+
+          **動画プロンプト最適化のポイント**:
+          - 画像の具体的な内容に基づいた動画の動きを指定
+          - 生成された画像の雰囲気や色調を活かした動画表現
+          - Vidu Q1の特性を考慮したプロンプト最適化
+          - 自然で魅力的な動画のストーリーテリング
+          - 技術的制約を考慮した現実的な動画生成指示
+
+          **最適化プロンプトの要件**:
+          - 生成された画像を起点とした具体的な動画の動き
+          - 30-80語程度の適切な長さ
+          - Vidu Q1に適した表現とキーワード
+          - 画像の特徴を活かした動画コンセプト
+          - 時間軸を考慮した動きの指示
+
+          **重要**: 
+          1. 必ず生成された画像ファイルを読み込んで内容を分析してください
+          2. 画像の内容に基づいて動画プロンプトを最適化してください
+          3. txtファイルは機械処理用（1行テキスト）、mdファイルはユーザー確認用
+          4. 指定されたファイルパスに結果を保存してください"
+          
+          echo "🚀 Starting Video Prompt Optimization Agent Claude Code CLI..."
+          
+          # Claude Code CLIの実行
+          npx @anthropic-ai/claude-code \
+            --allowedTools "Read,Write,Edit" \
+            --max-turns 10 \
+            --verbose \
+            --permission-mode "acceptEdits" \
+            -p "$PROMPT" || {
+              echo "::error::❌ Claude Code CLI execution failed"
+              exit 1
+            }
+          
+          # 最適化結果の確認
+          if [ -f "$OPTIMIZATION_DIR/video-prompt.txt" ]; then
+            OPTIMIZED_PROMPT=$(cat "$OPTIMIZATION_DIR/video-prompt.txt" | tr '\n' ' ')
+            echo "::notice::✅ Optimized video prompt generated"
+            echo "Optimized prompt: $OPTIMIZED_PROMPT"
+            echo "video-prompt=$OPTIMIZED_PROMPT" >> $GITHUB_OUTPUT
+          else
+            echo "::error::❌ Optimized video prompt file not found"
+            exit 1
+          fi
+          
+          echo "completed=true" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+      
+      - name: Commit and push optimization
+        env:
+          GH_TOKEN: ${{ secrets.github_token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ inputs.folder-name }}/
+          if git diff --cached --quiet; then
+            echo "No optimization files to commit"
+          else
+            git commit -m "Add video prompt optimization: ${{ inputs.concept }}"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi
