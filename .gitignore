@@ -40,9 +40,9 @@ build/
 out/
 
 # MCP config (contains sensitive data)
-.claude/mcp-kamuicode.json
+# .claude/mcp-kamuicode.json
 
-.gemini/settings.json
+# .gemini/settings.json
 
 # GitHub Actions artifacts
 .github/run/
