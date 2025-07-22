@@ -6,10 +6,24 @@ AI content generation workflow templates using Claude Code SDK and kamuicode MCP
 
 A collection of workflow templates for generating AI content using Claude Code SDK and kamuicode MCP in GitHub Actions. Choose the optimal workflow based on your specific needs.
 
+**🆕 v0.2.0 New Features**: Multi-model support enables free selection from 5 image generation models and 3 video generation models for optimal content creation combinations.
+
 ## 📦 Workflow List
 
-### 🏗️ [Module Workflow](./module-workflow/)
-Modularized AI video generation system. Efficiently generates high-quality content through reusable components and multi-agent collaboration.
+### 🏗️ [Module Workflow](./module-workflow/) 🆕 v0.2.0
+Modularized AI video & banner generation system. Efficiently generates high-quality content through reusable components and multi-agent collaboration.
+
+**🆕 Latest Features (v0.2.0-multi-model):**
+- **Multi-model Support**: Free selection from 5 image models & 3 video models
+- **t2v/i2v/r2v Integration**: Text-to-video, image-to-video, reference video generation
+- **Dynamic Model Selection**: Automatic tool detection from kamuicode-usage.md
+- **Model Optimization**: Auto-generated prompts tailored to each AI model's characteristics
+
+**Key Features:**
+- **Video Generation**: High-quality video production with any AI model combination
+- **Banner Generation**: Automatically create up to 4 banner ads from concept and text
+- **Quality Analysis**: Commercial-grade evaluation using Gemini Vision
+- **8 Orchestrators**: Optimal workflow selection for different use cases
 
 **⚠️ Note**: Modules may be continuously adjusted for improved reusability and quality.
 
@@ -36,7 +50,9 @@ Image-to-video generation analysis workflow integrated with Gemini API.
 
 | Use Case | Recommended Workflow | Features |
 |----------|---------------------|----------|
+| 🆕 Multi-model video generation | Module Workflow (Multi-Model) | Any AI model selection, t2v/i2v/r2v support |
 | High-quality, large-scale generation | Module Workflow | Modular, multi-agent |
+| Banner advertisement creation | Module Workflow (Banner) | Auto-generate up to 4 banners from concept |
 | Music video creation | Music Video | Audio+video integration |
 | Learning, basic use | Video Template | Simple, easy to adopt |
 | Background removal needed | Background Removal | Special processing |
@@ -44,10 +60,14 @@ Image-to-video generation analysis workflow integrated with Gemini API.
 
 ## 🛠️ Requirements
 
-- Claude Code SDK
-- kamuicode MCP
-- Anthropic API Key
-- GitHub Actions
+- **Claude Code SDK**: AI agent execution environment
+- **kamuicode MCP**: Image, video, music generation services (multi-model support)
+- **Anthropic API Key**: Claude AI access
+- **GitHub Actions**: Workflow execution environment
+- **GitHub PAT Token**: Pull request creation
+
+### 🆕 Multi-Model Support
+kamuicode MCP supports 5 image generation models and 3 video generation models, enabling optimal AI selection for different use cases.
 
 ## 🤝 Contributing
 

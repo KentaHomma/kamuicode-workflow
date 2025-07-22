@@ -1,0 +1,275 @@
+name: orchestrator-news-video-generation
+
+on:
+  workflow_dispatch:
+    inputs:
+      concept:
+        description: 'ニュースのトピックまたはコンセプト'
+        required: true
+        type: string
+      news-content:
+        description: 'ニュース内容（原稿テキスト）'
+        required: true
+        type: string
+      target-language:
+        description: '翻訳先言語'
+        required: false
+        type: choice
+        options:
+          - japanese
+          - english
+        default: 'japanese'
+      text-prompt:
+        description: 'カスタムニュース原稿（空の場合はnews-contentを翻訳したものを使用）'
+        required: false
+        type: string
+      image-model:
+        description: '画像生成モデル'
+        required: true
+        type: choice
+        options:
+          - t2i-google-imagen3
+          - t2i-fal-imagen4-ultra
+          - t2i-fal-imagen4-fast
+          - t2i-fal-flux-schnell
+          - t2i-fal-rundiffusion-photo-flux
+        default: t2i-fal-imagen4-fast
+      video-model:
+        description: '動画生成モデル'
+        required: true
+        type: choice
+        options:
+          - t2v-fal-veo3-fast
+          - i2v-fal-hailuo-02-pro
+          - r2v-fal-vidu-q1
+        default: i2v-fal-hailuo-02-pro
+      audio-model:
+        description: '音声生成モデル'
+        required: true
+        type: choice
+        options:
+          - t2s-fal-minimax-speech-02-turbo
+        default: t2s-fal-minimax-speech-02-turbo
+      lipsync-model:
+        description: 'リップシンクモデル'
+        required: true
+        type: choice
+        options:
+          - v2v-fal-creatify-lipsync
+        default: v2v-fal-creatify-lipsync
+      voice-settings:
+        description: 'カスタム音声設定（JSON形式、空の場合は自動生成）'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup placeholder
+        run: echo "Setup completed"
+
+  create-branch:
+    needs: setup
+    uses: ./.github/workflows/module-setup-branch.yml
+    with:
+      concept: ${{ inputs.concept }}
+      project_prefix: "news-video"
+
+  # ステップ1: ニュース企画
+  planning:
+    needs: [create-branch]
+    uses: ./.github/workflows/module-news-planning-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      news-content: ${{ inputs.news-content }}
+      text-prompt: ${{ inputs.text-prompt }}
+      target-language: ${{ inputs.target-language }}
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      video_index: "1"
+      news-style: "formal"
+      news-duration: "60"
+      anchor-type: "professional"
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ2: 画像生成
+  image-generation:
+    needs: [create-branch, planning]
+    uses: ./.github/workflows/module-image-generation-kc-multi-model-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      model-type: ${{ inputs.image-model }}
+      image-prompt: ${{ needs.planning.outputs.image-prompt-1 }}
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      video_index: "1"
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ3: 動画生成（画像から）
+  video-generation:
+    needs: [create-branch, planning, image-generation]
+    uses: ./.github/workflows/module-video-generation-kc-multi-model-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      model-type: ${{ inputs.video-model }}
+      video-prompt: ${{ needs.planning.outputs.video-concept-1 }}
+      image-url: ${{ needs.image-generation.outputs.image-url }}
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      video_index: "1"
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ4: 音声生成
+  audio-generation:
+    needs: [create-branch, planning]
+    uses: ./.github/workflows/module-audio-generation-kc-multi-model-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      model-type: ${{ inputs.audio-model }}
+      text-prompt: ${{ needs.planning.outputs.audio-prompt-1 }}
+      voice-settings: ${{ inputs.voice-settings != '' && inputs.voice-settings || needs.planning.outputs.voice-settings }}
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      audio_index: "1"
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ4.1: タイトル背景画像生成（並行）
+  title-background-generation:
+    needs: [create-branch, planning]
+    uses: ./.github/workflows/module-image-generation-kc-multi-model-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      model-type: ${{ inputs.image-model }}
+      image-prompt: ${{ needs.planning.outputs.title-image-prompt }}
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      video_index: "title"
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ4.2: タイトルテキストオーバーレイ
+  title-text-overlay:
+    needs: [create-branch, planning, title-background-generation]
+    uses: ./.github/workflows/module-banner-text-overlay-kc-i2i-fal-flux-kontext-max-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      text_content: ${{ needs.planning.outputs.news-title }}
+      image-url: ${{ needs.title-background-generation.outputs.image-url }}
+      text-layout-strategy: "center_title_layout"
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      banner_index: "title"
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+
+  # ステップ5: リップシンク生成
+  lipsync-generation:
+    needs: [create-branch, audio-generation, video-generation]
+    if: always() && needs.video-generation.result == 'success'
+    uses: ./.github/workflows/module-lipsync-generation-kc-multi-model-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      model-type: ${{ inputs.lipsync-model }}
+      video-url: ${{ needs.video-generation.outputs.video-url }}
+      audio-url: ${{ needs.audio-generation.outputs.audio-url }}
+      lipsync-settings: '{}'
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      lipsync_index: "1"
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ6: リップシンク動画字幕解析
+  subtitle-analysis:
+    needs: [create-branch, planning, audio-generation, lipsync-generation]
+    if: always() && needs.lipsync-generation.result == 'success'
+    uses: ./.github/workflows/module-lipsync-video-analysis-gca.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-url: ${{ needs.lipsync-generation.outputs.video-url }}
+      text-content: ${{ needs.planning.outputs.audio-prompt-1 }}
+      target-language: ${{ inputs.target-language }}
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      video_index: "1"
+    secrets:
+      gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ7: 字幕オーバーレイ
+  subtitle-overlay:
+    needs: [create-branch, planning, audio-generation, lipsync-generation, subtitle-analysis]
+    if: always() && needs.subtitle-analysis.result == 'success'
+    uses: ./.github/workflows/module-subtitle-overlay-ffmpeg-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-url: ${{ needs.lipsync-generation.outputs.video-url }}
+      text-content: ${{ needs.planning.outputs.audio-prompt-1 }}
+      subtitle-timing-json: ${{ needs.subtitle-analysis.outputs.subtitle-timing-json }}
+      target-language: ${{ inputs.target-language }}
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      video_index: "1"
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ8: 動画にタイトルフレーム追加（最終段階）
+  video-with-title:
+    needs: [create-branch, subtitle-overlay, title-text-overlay]
+    if: always() && needs.subtitle-overlay.result == 'success'
+    uses: ./.github/workflows/module-video-title-frame-ffmpeg-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-url: ${{ needs.subtitle-overlay.outputs.video-url }}
+      title-image-url: ${{ needs.title-text-overlay.outputs.image-url }}
+      title-duration: "3"
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+      video_index: "1"
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ9: プルリクエスト作成
+  create-pr:
+    needs: [create-branch, audio-generation, lipsync-generation, subtitle-overlay, video-with-title]
+    if: always() && needs.video-with-title.result == 'success'
+    uses: ./.github/workflows/module-create-pr.yml
+    with:
+      concept: ${{ inputs.concept }}
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+    secrets:
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # ステップ10: サマリー作成
+  create-summary:
+    needs: [create-branch, audio-generation, lipsync-generation, subtitle-overlay, video-with-title, create-pr]
+    if: always() && needs.create-pr.result == 'success'
+    uses: ./.github/workflows/module-create-summary.yml
+    with:
+      concept: ${{ inputs.concept }}
+      branch-name: ${{ needs.create-branch.outputs.branch-name }}
+      folder-name: ${{ needs.create-branch.outputs.folder-name }}
+    secrets:
+      github_pat: ${{ secrets.PAT_TOKEN }}

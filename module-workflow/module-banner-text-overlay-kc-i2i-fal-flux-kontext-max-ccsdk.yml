@@ -158,7 +158,7 @@ jobs:
              - prompt: 「テキスト '$USER_TEXT_CONTENT' を画像に合成してください。テキスト内容は一切変更せず、レイアウトとデザインのみ最適化してください。$TEXT_LAYOUT_STRATEGY」
           2. mcp__i2i-fal-flux-kontext-max__flux_kontext_status でステータス確認
           3. mcp__i2i-fal-flux-kontext-max__flux_kontext_result で結果取得してGoogle URLを取得
-          4. **重要**: 生成時に取得したGoogle URLを「$FOLDER_NAME/image-url.txt」ファイルに保存
+          4. **重要**: 生成時に取得したGoogle URLを「$BANNERS_DIR/image-url.txt」ファイルに保存
           5. 取得したGoogle URLをBashツールで「$BANNERS_DIR/image.png」にダウンロード保存
 
           **テキスト合成の詳細指示**:
@@ -179,7 +179,7 @@ jobs:
           - 必ずGoogle提供の認証済URLを使用
           - バナー画像は必ず「$BANNERS_DIR」ディレクトリに保存
           - ファイル名は「image.png」とする
-          - **最重要**: 生成時のGoogle URLを「$FOLDER_NAME/image-url.txt」に保存し、次のジョブで参照できるようにする
+          - **最重要**: 生成時のGoogle URLを「$BANNERS_DIR/image-url.txt」に保存し、次のジョブで参照できるようにする
           - **両方を実行**: ①Google URLをテキストファイルに保存 ②Google URLから画像をダウンロードしてローカル保存"
           
           echo "🚀 Starting Banner Text Overlay Agent Claude Code CLI..."
@@ -205,8 +205,8 @@ jobs:
             echo "::notice::🎨 Generated $BANNER_COUNT banner images"
             if [ "$BANNER_COUNT" -gt 0 ]; then
               # Google URLを確認してGitHub Outputに設定
-              if [ -f "$FOLDER_NAME/image-url.txt" ]; then
-                GOOGLE_IMAGE_URL=$(cat "$FOLDER_NAME/image-url.txt")
+              if [ -f "$BANNERS_DIR/image-url.txt" ]; then
+                GOOGLE_IMAGE_URL=$(cat "$BANNERS_DIR/image-url.txt")
                 echo "Google image URL: $GOOGLE_IMAGE_URL"
                 echo "image-url=$GOOGLE_IMAGE_URL" >> $GITHUB_OUTPUT
               else

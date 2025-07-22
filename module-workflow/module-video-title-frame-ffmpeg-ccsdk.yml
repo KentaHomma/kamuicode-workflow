@@ -1,0 +1,310 @@
+name: module-video-title-frame-ffmpeg-ccsdk
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      video-url:
+        description: '元動画URL'
+        required: true
+        type: string
+      title-image-url:
+        description: 'タイトル画像URL'
+        required: true
+        type: string
+      title-duration:
+        description: 'タイトル表示時間（秒）'
+        required: false
+        type: string
+        default: '3'
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      video_index:
+        description: '動画インデックス'
+        required: false
+        type: string
+        default: '1'
+    outputs:
+      video-url:
+        description: 'タイトル付き動画URL'
+        value: ${{ jobs.title-frame.outputs.video-url }}
+      completed:
+        description: '処理完了フラグ'
+        value: ${{ jobs.title-frame.outputs.completed }}
+    secrets:
+      anthropic_api_key:
+        description: 'Anthropic API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  title-frame:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      video-url: ${{ steps.title-complete.outputs.video-url }}
+      completed: ${{ steps.title-complete.outputs.completed }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Claude Code SDK
+        run: npm install @anthropic-ai/claude-code
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg wget
+          
+          # ffmpegのバージョン確認
+          ffmpeg -version | head -5
+      
+      - name: 🎬 動画タイトルフレーム挿入エージェント (Claude Code SDK + ffmpeg)
+        id: insert-title-frame
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+        run: |
+          echo "::group::🎬 Video Title Frame Insert Agent Execution"
+          echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+          
+          # 設定
+          USER_CONCEPT="${{ inputs.concept }}"
+          VIDEO_URL="${{ inputs.video-url }}"
+          TITLE_IMAGE_URL="${{ inputs.title-image-url }}"
+          TITLE_DURATION="${{ inputs.title-duration }}"
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          TITLE_DIR="$FOLDER_NAME/title-frame-${{ inputs.video_index }}"
+          VIDEO_INDEX="${{ inputs.video_index }}"
+          
+          echo "User concept: $USER_CONCEPT"
+          echo "Video URL: $VIDEO_URL"
+          echo "Title image URL: $TITLE_IMAGE_URL"
+          echo "Title duration: $TITLE_DURATION seconds"
+          echo "Title directory: $TITLE_DIR"
+          echo "Video index: $VIDEO_INDEX"
+          
+          # タイトルフレームディレクトリを作成
+          mkdir -p "$TITLE_DIR"
+          
+          # プロンプトの構築
+          PROMPT="あなたはffmpegを使用した動画編集の専門エージェントです。動画の先頭にタイトル画像フレームを挿入してください。
+
+          **入力情報**:
+          - **動画URL**: $VIDEO_URL
+          - **タイトル画像URL**: $TITLE_IMAGE_URL
+          - **タイトル表示時間**: $TITLE_DURATION 秒
+          - **作業ディレクトリ**: $TITLE_DIR
+
+          **重要**: 動画URLまたはタイトル画像URLが空または\"undefined\"の場合は、エラーを報告してください
+
+          **実行手順**:
+
+          1. **ファイル取得**:
+             ```bash
+             cd $TITLE_DIR
+             
+             # 元動画の取得（URLまたはローカルファイル）
+             if [[ \"$VIDEO_URL\" == http* ]]; then
+               echo \"動画URLからダウンロード: $VIDEO_URL\"
+               wget \"$VIDEO_URL\" -O original-video.mp4
+             elif [[ \"$VIDEO_URL\" == ./* ]]; then
+               echo \"ローカルファイルをコピー: $VIDEO_URL\"
+               # ローカルパスの場合、title-frameディレクトリから相対パスで参照
+               # 例: ./audio-lipsync-xxx/subtitle-overlay-1/video.mp4 → ../subtitle-overlay-1/video.mp4
+               RELATIVE_PATH=\"\$(echo \"$VIDEO_URL\" | sed \"s|^\\./[^/]*/|../|\")\\"
+               echo \"相対パス: $RELATIVE_PATH\"
+               if [ -f \"$RELATIVE_PATH\" ]; then
+                 cp \"$RELATIVE_PATH\" original-video.mp4
+               else
+                 echo \"エラー: ローカル動画ファイルが見つかりません: $RELATIVE_PATH\"
+                 exit 1
+               fi
+             else
+               echo \"エラー: 動画URLまたはローカルパスが無効です: $VIDEO_URL\"
+               exit 1
+             fi
+             
+             # タイトル画像のダウンロード
+             wget \"$TITLE_IMAGE_URL\" -O title-image.jpg
+             
+             # ファイルの確認
+             ls -la original-video.mp4 title-image.jpg
+             ```
+
+          2. **動画情報の確認**:
+             ```bash
+             # 元動画の情報を取得
+             ffprobe -v quiet -print_format json -show_format -show_streams original-video.mp4 > original-video-info.json
+             
+             # 動画の解像度とフレームレートを確認
+             VIDEO_WIDTH=\$(ffprobe -v quiet -select_streams v:0 -show_entries stream=width -of csv=s=x:p=0 original-video.mp4)
+             VIDEO_HEIGHT=\$(ffprobe -v quiet -select_streams v:0 -show_entries stream=height -of csv=s=x:p=0 original-video.mp4)
+             VIDEO_FPS=\$(ffprobe -v quiet -select_streams v:0 -show_entries stream=r_frame_rate -of csv=s=x:p=0 original-video.mp4)
+             
+             echo \"Original video: \${VIDEO_WIDTH}x\${VIDEO_HEIGHT} @ \${VIDEO_FPS} fps\"
+             ```
+
+          3. **タイトル画像の動画化**:
+             ```bash
+             # タイトル画像を元動画と同じ解像度にリサイズして動画化
+             ffmpeg -loop 1 -i title-image.jpg \\
+               -t $TITLE_DURATION \\
+               -vf \"scale=\${VIDEO_WIDTH}:\${VIDEO_HEIGHT}:force_original_aspect_ratio=increase,crop=\${VIDEO_WIDTH}:\${VIDEO_HEIGHT}\" \\
+               -r \${VIDEO_FPS} \\
+               -pix_fmt yuv420p \\
+               -an \\
+               title-segment.mp4
+             
+             # タイトル動画の確認
+             echo \"Title segment created:\"
+             ffprobe -v quiet -show_format title-segment.mp4
+             ```
+
+          4. **音声処理**:
+             ```bash
+             # 元動画の音声を抽出
+             ffmpeg -i original-video.mp4 -vn -acodec aac -ab 128k original-audio.aac
+             
+             # タイトル部分用の無音音声を作成（元動画と同じ設定）
+             SAMPLE_RATE=\$(ffprobe -v quiet -select_streams a:0 -show_entries stream=sample_rate -of csv=s=x:p=0 original-video.mp4)
+             CHANNELS=\$(ffprobe -v quiet -select_streams a:0 -show_entries stream=channels -of csv=s=x:p=0 original-video.mp4)
+             
+             ffmpeg -f lavfi -i \"anullsrc=channel_layout=stereo:sample_rate=\${SAMPLE_RATE}\" \\
+               -t $TITLE_DURATION \\
+               -c:a aac -ab 128k \\
+               title-silence.aac
+             ```
+
+          5. **動画と音声の結合**:
+             ```bash
+             # タイトル動画に無音音声を追加
+             ffmpeg -i title-segment.mp4 -i title-silence.aac \\
+               -c:v copy -c:a copy -shortest \\
+               title-with-audio.mp4
+             
+             # 元動画とタイトル動画を連結
+             # リストファイルを作成
+             echo \"file 'title-with-audio.mp4'\" > concat-list.txt
+             echo \"file 'original-video.mp4'\" >> concat-list.txt
+             
+             # 動画を連結（直接video.mp4として出力）
+             ffmpeg -f concat -safe 0 -i concat-list.txt \\
+               -c copy \\
+               video.mp4
+             ```
+
+          6. **品質確認**:
+             ```bash
+             # 最終動画の確認
+             ffprobe -v quiet -show_format -show_streams video.mp4
+             
+             # ファイルサイズと長さの確認
+             echo \"Final video info:\"
+             ls -lh video.mp4
+             
+             # 音声ストリームの確認
+             ffprobe -v quiet -select_streams a -show_entries stream=codec_name,duration -of csv=s=x:p=0 video.mp4
+             
+             # メタデータの保存
+             echo \"タイトルフレーム付き動画生成完了: $TITLE_DURATION 秒のタイトル + 元動画\" > title-frame-log.txt
+             echo \"タイトル画像: $TITLE_IMAGE_URL\" >> title-frame-log.txt
+             echo \"元動画: $VIDEO_URL\" >> title-frame-log.txt
+             ```
+
+          **重要な技術ポイント**:
+          - 元動画と同じ解像度・フレームレートでタイトル動画を作成
+          - 音声の連続性を保持（タイトル部分は無音、動画部分は元音声）
+          - concat demuxerを使用した高品質な動画連結
+          - 音声コーデックの統一（AAC）
+
+          **エラー処理**:
+          - ファイル取得エラーの処理（ダウンロードまたはローカルコピー）
+          - ffmpeg実行エラーの処理
+          - 動画情報取得エラーの処理
+          **出力要求**:
+          1. タイトル付き動画ファイル (video.mp4) - 最終的な連結時に直接このファイル名で出力すること
+          2. 処理ログ (title-frame-log.txt)"
+          
+          echo "🚀 Starting Title Frame Insert Agent Claude Code CLI..."
+          echo "📝 Prompt length: ${#PROMPT}"
+          
+          # Claude Code CLIの実行
+          npx @anthropic-ai/claude-code \
+            --max-turns 40 \
+            --verbose \
+            --permission-mode "acceptEdits" \
+            -p "$PROMPT" || {
+              echo "::error::❌ Claude Code CLI execution failed"
+              exit 1
+            }
+          
+          echo "::endgroup::"
+
+      - name: Mark title frame insert complete
+        id: title-complete
+        run: |
+          TITLE_DIR="${{ inputs.folder-name }}/title-frame-${{ inputs.video_index }}"
+          
+          # 生成されたファイルの確認
+          echo "📋 Checking generated title frame files..."
+          if [ -d "$TITLE_DIR" ]; then
+            echo "::notice::📁 Title frame directory contents:"
+            ls -la "$TITLE_DIR"
+            
+            # 必須ファイルの確認
+            if [ -f "$TITLE_DIR/video.mp4" ]; then
+              echo "✅ Found: video.mp4"
+              echo "video-url=./$TITLE_DIR/video.mp4" >> $GITHUB_OUTPUT
+              echo "completed=true" >> $GITHUB_OUTPUT
+              
+            else
+              echo "::error::❌ Missing required file: video.mp4"
+              echo "completed=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+            
+          else
+            echo "::error::❌ Title frame directory not found"
+            echo "completed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+      - name: Commit title frame files
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ inputs.folder-name }}/title-frame-${{ inputs.video_index }}/
+          if git diff --cached --quiet; then
+            echo "No title frame files to commit"
+          else
+            git commit -m "🎬 Add title frame to video: ${{ inputs.concept }} (video-${{ inputs.video_index }})
+
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi

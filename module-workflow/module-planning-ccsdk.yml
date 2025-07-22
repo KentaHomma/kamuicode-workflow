@@ -20,6 +20,14 @@ on:
         required: false
         type: string
         default: '1'
+      image-model-type:
+        description: '画像生成モデルタイプ（指定時はそのモデルに最適化、未指定時は汎用プロンプト）'
+        required: false
+        type: string
+      video-model-type:
+        description: '動画生成モデルタイプ（指定時はそのモデルに最適化、未指定時は汎用プロンプト）'
+        required: false
+        type: string
     outputs:
       planning-completed:
         description: '企画完了ステータス'
@@ -153,10 +161,14 @@ jobs:
           FOLDER_NAME="${{ inputs.folder-name }}"
           PLANNING_DIR="$FOLDER_NAME/planning"
           TOTAL_VIDEOS="${{ inputs.total_videos }}"
+          IMAGE_MODEL_TYPE="${{ inputs.image-model-type }}"
+          VIDEO_MODEL_TYPE="${{ inputs.video-model-type }}"
           
           echo "User concept: $USER_CONCEPT"
           echo "Planning folder: $PLANNING_DIR"
           echo "Total videos: $TOTAL_VIDEOS"
+          echo "Image model type: $IMAGE_MODEL_TYPE"
+          echo "Video model type: $VIDEO_MODEL_TYPE"
           
           # 計画フォルダを事前に作成
           if [ ! -d "$PLANNING_DIR" ]; then
@@ -202,7 +214,7 @@ jobs:
              - （以下、動画数分）
 
           **画像生成プロンプトの要件**:
-          - Imagen4 Ultraに最適化された詳細なプロンプト
+          - 汎用的で高品質な画像生成に適したプロンプト
           - 各動画の特性に最適化された内容
           - 視覚的要素（色彩、構図、スタイル）を明確に指定
           - 高解像度・高品質を意識した記述
@@ -213,13 +225,21 @@ jobs:
           - 生成される画像をベースにした動画の方向性
           - 各動画固有の動きやアニメーションの種類
           - 雰囲気や感情表現
-          - Vidu Q1での動画生成に適した内容
+          - 汎用的な動画生成に適した内容
+
+          **モデル最適化**: 
+          - 画像生成モデル指定: ${IMAGE_MODEL_TYPE:-なし}
+          - 動画生成モデル指定: ${VIDEO_MODEL_TYPE:-なし}
+          - 指定されたモデルがある場合は、そのモデルの特性に合わせてプロンプトを最適化してください
+          - モデル未指定の場合は、汎用的で高品質なプロンプトを作成してください
+          - kamuicode-usage.mdからモデル特性を参照して最適化を行ってください
 
           **重要**: 
           1. 必ず${TOTAL_VIDEOS}個分のファイルを作成してください
           2. txtファイルは機械処理用（1行テキスト）
           3. 各ファイルの内容は具体的で詳細に記述してください
-          4. ファイル作成後、必ずファイルパスを確認・報告してください"
+          4. ファイル作成後、必ずファイルパスを確認・報告してください
+          5. モデル指定がある場合は、まず .github/workflows/kamuicode/kamuicode-usage.mdを読み込んで特性を理解してください"
           
           echo "🚀 Starting Planning Agent Claude Code CLI..."
           echo "📝 Prompt length: ${#PROMPT}"

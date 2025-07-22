@@ -1,0 +1,233 @@
+name: module-lipsync-generation-kc-multi-model-ccsdk
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      model-type:
+        description: '使用するリップシンクモデル (例: v2v-fal-creatify-lipsync)'
+        required: true
+        type: string
+      video-url:
+        description: '入力動画URL'
+        required: true
+        type: string
+      audio-url:
+        description: '入力音声URL'
+        required: true
+        type: string
+      lipsync-settings:
+        description: 'リップシンク設定（JSON形式、オプション）'
+        required: false
+        type: string
+        default: '{}'
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      lipsync_index:
+        description: 'リップシンクインデックス'
+        required: false
+        type: string
+        default: '1'
+    outputs:
+      completed:
+        description: '完了ステータス'
+        value: ${{ jobs.lipsync-generation.outputs.completed }}
+      video-url:
+        description: 'リップシンク動画URL'
+        value: ${{ jobs.lipsync-generation.outputs.video-url }}
+    secrets:
+      anthropic_api_key:
+        description: 'Anthropic API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  lipsync-generation:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      completed: ${{ steps.lipsync.outputs.completed }}
+      video-url: ${{ steps.lipsync.outputs.video-url }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Claude Code SDK
+        run: npm install @anthropic-ai/claude-code
+      
+      - name: リップシンク生成エージェント (マルチモデル対応)
+        id: lipsync
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+        run: |
+          echo "::group::👄 Lipsync Generation Agent Execution (Multi-Model)"
+          echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+          
+          # 設定
+          USER_CONCEPT="${{ inputs.concept }}"
+          MODEL_TYPE="${{ inputs.model-type }}"
+          VIDEO_URL="${{ inputs.video-url }}"
+          AUDIO_URL="${{ inputs.audio-url }}"
+          LIPSYNC_SETTINGS="${{ inputs.lipsync-settings }}"
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          LIPSYNC_INDEX="${{ inputs.lipsync_index }}"
+          LIPSYNC_DIR="$FOLDER_NAME/lipsync-${LIPSYNC_INDEX}"
+          
+          echo "User concept: $USER_CONCEPT"
+          echo "Model type: $MODEL_TYPE"
+          echo "Video URL: $VIDEO_URL"
+          echo "Audio URL: $AUDIO_URL"
+          echo "Lipsync settings: $LIPSYNC_SETTINGS"
+          echo "Lipsync index: $LIPSYNC_INDEX"
+          echo "Target folder: $LIPSYNC_DIR"
+          
+          # リップシンクフォルダを事前に作成
+          if [ ! -d "$LIPSYNC_DIR" ]; then
+            mkdir -p "$LIPSYNC_DIR"
+            echo "📁 Created lipsync folder: $LIPSYNC_DIR"
+          fi
+          
+          # MCP設定の確認
+          MCP_CONFIG_PATH=".claude/mcp-kamuicode.json"
+          MCP_CONFIG_ABS_PATH="$(pwd)/$MCP_CONFIG_PATH"
+          
+          # MCP設定ファイルの存在確認
+          if [ -f "$MCP_CONFIG_ABS_PATH" ]; then
+            echo "✅ MCP config file exists at: $MCP_CONFIG_ABS_PATH"
+          else
+            echo "❌ MCP config file not found at: $MCP_CONFIG_ABS_PATH"
+            exit 1
+          fi
+          
+          # プロンプトの構築
+          PROMPT="指定されたモデルタイプを使用してリップシンク動画を生成してください。
+
+          **元のユーザー指示**: $USER_CONCEPT
+          **使用するモデルタイプ**: $MODEL_TYPE
+          **入力動画URL**: $VIDEO_URL
+          **入力音声URL**: $AUDIO_URL
+          **リップシンク設定**: $LIPSYNC_SETTINGS
+
+          **実行手順**:
+          1. まず、\`.github/workflows/kamuicode/kamuicode-usage.md\`ファイルを読み込んで、モデルタイプ「$MODEL_TYPE」に対応するMCPツール名を確認してください
+          2. ファイルから以下の情報を抽出:
+             - submitツール名（例: mcp__v2v-fal-creatify-lipsync__submit）
+             - statusツール名（例: mcp__v2v-fal-creatify-lipsync__status）
+             - resultツール名（例: mcp__v2v-fal-creatify-lipsync__result）
+          3. モデルタイプに応じて適切なパラメータを使用:
+             - **v2v-で始まる場合**: 動画URL（$VIDEO_URL）と音声URL（$AUDIO_URL）を使用してリップシンク動画生成
+          4. submitツールでリップシンク生成を開始
+          5. statusツールでステータス確認（リップシンク生成は時間がかかるため、適度な間隔で確認）
+          6. 必要に応じてBashツールで \`sleep 60\` を実行してから再度ステータス確認
+          7. resultツールで結果取得してリップシンク動画URLを取得
+          8. **必須**: 取得したリップシンク動画URLを「$LIPSYNC_DIR/lipsync-video-url.txt」ファイルに保存
+          9. **必須**: 取得したリップシンク動画URLをBashツールで「$LIPSYNC_DIR/lipsync-video.mp4」にダウンロード保存
+
+          **重要な注意点**:
+          - kamuicode-usage.mdから正しいツール名を読み取ること
+          - リップシンク生成は時間がかかるため、ステータス確認の間に適度な待機時間を入れること
+          - Google URLの有効期限は約1時間のため、生成後すぐにダウンロード
+          - 必ずGoogle提供の認証済URLを使用（入力URLも出力URLも）
+          - 動画は必ず「$LIPSYNC_DIR」ディレクトリに保存
+          - ファイル名は「lipsync-video.mp4」とする
+          - **最重要**: 生成時のリップシンク動画URLを「$LIPSYNC_DIR/lipsync-video-url.txt」に保存し、次のジョブで参照できるようにする
+          - **両方を実行**: ①リップシンク動画URLをテキストファイルに保存 ②リップシンク動画URLから動画をダウンロードしてローカル保存
+          - **入力ファイルについて**: 動画URLと音声URLは既に認証済みのGoogleリンクを使用"
+          
+          echo "🚀 Starting Lipsync Generation Agent Claude Code CLI..."
+          echo "📝 Prompt length: ${#PROMPT}"
+          
+          # Claude Code CLIの実行（リップシンク生成系ツールはワイルドカードで許可）
+          npx @anthropic-ai/claude-code \
+            --mcp-config="$MCP_CONFIG_ABS_PATH" \
+            --allowedTools "mcp__v2v-*,Read,Bash" \
+            --max-turns 40 \
+            --verbose \
+            --permission-mode "acceptEdits" \
+            -p "$PROMPT" || {
+              echo "::error::❌ Claude Code CLI execution failed"
+              exit 1
+            }
+          
+          # 生成されたリップシンク動画の確認
+          echo ""
+          echo "👄 Checking generated lipsync videos..."
+          if [ -d "$LIPSYNC_DIR" ]; then
+            LIPSYNC_COUNT=$(find "$LIPSYNC_DIR" -name "*.mp4" -o -name "*.mov" -o -name "*.avi" | wc -l)
+            echo "::notice::👄 Generated $LIPSYNC_COUNT lipsync videos using $MODEL_TYPE"
+            if [ "$LIPSYNC_COUNT" -gt 0 ]; then
+              # リップシンク動画ファイルサイズの確認
+              for lipsync_file in $(find "$LIPSYNC_DIR" -name "*.mp4" -o -name "*.mov" -o -name "*.avi" | head -3); do
+                if [ -f "$lipsync_file" ]; then
+                  LIPSYNC_SIZE=$(stat -c%s "$lipsync_file" 2>/dev/null || stat -f%z "$lipsync_file" 2>/dev/null || echo "0")
+                  echo "::notice::🎬 Lipsync video file: $lipsync_file (${LIPSYNC_SIZE} bytes)"
+                  if [ "$LIPSYNC_SIZE" -eq 0 ]; then
+                    echo "::error::❌ Lipsync video file is empty: $lipsync_file"
+                    exit 1
+                  fi
+                fi
+              done
+              
+              # リップシンク動画URLファイルの確認と出力設定
+              LIPSYNC_URL_FILE="$LIPSYNC_DIR/lipsync-video-url.txt"
+              if [ -f "$LIPSYNC_URL_FILE" ]; then
+                LIPSYNC_VIDEO_URL=$(cat "$LIPSYNC_URL_FILE")
+                echo "✅ Lipsync video URL found: $LIPSYNC_VIDEO_URL"
+                echo "video-url=$LIPSYNC_VIDEO_URL" >> $GITHUB_OUTPUT
+              else
+                echo "❌ Lipsync video URL file not found: $LIPSYNC_URL_FILE"
+                echo "Creating empty URL file to continue workflow..."
+                echo "" > "$LIPSYNC_URL_FILE"
+                echo "video-url=" >> $GITHUB_OUTPUT
+              fi
+            else
+              echo "::error::❌ No lipsync videos were generated"
+              exit 1
+            fi
+          else
+            echo "::error::❌ Lipsync directory not found"
+            exit 1
+          fi
+          
+          echo "completed=true" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+      
+      - name: Commit and push lipsync videos
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ inputs.folder-name }}/
+          if git diff --cached --quiet; then
+            echo "No lipsync videos to commit"
+          else
+            git commit -m "Add generated lipsync video using ${{ inputs.model-type }}: ${{ inputs.concept }}
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi

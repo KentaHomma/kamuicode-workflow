@@ -1,0 +1,405 @@
+name: module-news-planning-ccsdk
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ニュースのコンセプトまたはトピック'
+        required: true
+        type: string
+      news-content:
+        description: 'ユーザー指定のニュース内容（そのまま音声生成に使用）'
+        required: true
+        type: string
+      target-language:
+        description: '翻訳先言語 (japanese または english)'
+        required: false
+        type: string
+        default: 'japanese'
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      video_index:
+        description: '動画インデックス'
+        required: false
+        type: string
+        default: '1'
+      news-style:
+        description: 'ニュースのスタイル（formal, casual, entertainment）'
+        required: false
+        type: string
+        default: 'formal'
+      news-duration:
+        description: 'ニュースの長さ（秒）'
+        required: false
+        type: string
+        default: '60'
+      anchor-type:
+        description: 'アンカーのタイプ（professional, friendly, energetic）'
+        required: false
+        type: string
+        default: 'professional'
+      text-prompt:
+        description: 'カスタムニュース原稿（指定時はnews-contentより優先）'
+        required: false
+        type: string
+        default: ''
+    outputs:
+      planning-completed:
+        description: '企画完了ステータス'
+        value: ${{ jobs.news-planning.outputs.planning-completed }}
+      audio-prompt-1:
+        description: 'ニュース原稿（音声生成用）'
+        value: ${{ jobs.news-planning.outputs.audio-prompt-1 }}
+      audio-prompt-2:
+        description: '未使用'
+        value: ''
+      audio-prompt-3:
+        description: '未使用'
+        value: ''
+      audio-prompt-4:
+        description: '未使用'
+        value: ''
+      audio-prompt-5:
+        description: '未使用'
+        value: ''
+      audio-prompt-6:
+        description: '未使用'
+        value: ''
+      audio-prompt-7:
+        description: '未使用'
+        value: ''
+      audio-prompt-8:
+        description: '未使用'
+        value: ''
+      image-prompt-1:
+        description: 'アンカー画像生成用プロンプト'
+        value: ${{ jobs.news-planning.outputs.image-prompt-1 }}
+      image-prompt-2:
+        description: '未使用'
+        value: ''
+      image-prompt-3:
+        description: '未使用'
+        value: ''
+      image-prompt-4:
+        description: '未使用'
+        value: ''
+      image-prompt-5:
+        description: '未使用'
+        value: ''
+      image-prompt-6:
+        description: '未使用'
+        value: ''
+      image-prompt-7:
+        description: '未使用'
+        value: ''
+      image-prompt-8:
+        description: '未使用'
+        value: ''
+      video-concept-1:
+        description: 'アンカー動画生成用コンセプト'
+        value: ${{ jobs.news-planning.outputs.video-concept-1 }}
+      video-concept-2:
+        description: '未使用'
+        value: ''
+      video-concept-3:
+        description: '未使用'
+        value: ''
+      video-concept-4:
+        description: '未使用'
+        value: ''
+      video-concept-5:
+        description: '未使用'
+        value: ''
+      video-concept-6:
+        description: '未使用'
+        value: ''
+      video-concept-7:
+        description: '未使用'
+        value: ''
+      video-concept-8:
+        description: '未使用'
+        value: ''
+      voice-settings:
+        description: '音声設定（JSON形式）'
+        value: ${{ jobs.news-planning.outputs.voice-settings }}
+      news-title:
+        description: 'ニュースタイトル'
+        value: ${{ jobs.news-planning.outputs.news-title }}
+      news-summary:
+        description: 'ニュース要約'
+        value: ${{ jobs.news-planning.outputs.news-summary }}
+      title-image-prompt:
+        description: 'タイトル背景画像生成用プロンプト'
+        value: ${{ jobs.news-planning.outputs.title-image-prompt }}
+    secrets:
+      anthropic_api_key:
+        description: 'Anthropic API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  news-planning:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      planning-completed: ${{ steps.planning.outputs.completed }}
+      audio-prompt-1: ${{ steps.planning.outputs.audio-prompt-1 }}
+      audio-prompt-2: ${{ steps.planning.outputs.audio-prompt-2 }}
+      audio-prompt-3: ${{ steps.planning.outputs.audio-prompt-3 }}
+      audio-prompt-4: ${{ steps.planning.outputs.audio-prompt-4 }}
+      audio-prompt-5: ${{ steps.planning.outputs.audio-prompt-5 }}
+      audio-prompt-6: ${{ steps.planning.outputs.audio-prompt-6 }}
+      audio-prompt-7: ${{ steps.planning.outputs.audio-prompt-7 }}
+      audio-prompt-8: ${{ steps.planning.outputs.audio-prompt-8 }}
+      image-prompt-1: ${{ steps.planning.outputs.image-prompt-1 }}
+      image-prompt-2: ${{ steps.planning.outputs.image-prompt-2 }}
+      image-prompt-3: ${{ steps.planning.outputs.image-prompt-3 }}
+      image-prompt-4: ${{ steps.planning.outputs.image-prompt-4 }}
+      image-prompt-5: ${{ steps.planning.outputs.image-prompt-5 }}
+      image-prompt-6: ${{ steps.planning.outputs.image-prompt-6 }}
+      image-prompt-7: ${{ steps.planning.outputs.image-prompt-7 }}
+      image-prompt-8: ${{ steps.planning.outputs.image-prompt-8 }}
+      video-concept-1: ${{ steps.planning.outputs.video-concept-1 }}
+      video-concept-2: ${{ steps.planning.outputs.video-concept-2 }}
+      video-concept-3: ${{ steps.planning.outputs.video-concept-3 }}
+      video-concept-4: ${{ steps.planning.outputs.video-concept-4 }}
+      video-concept-5: ${{ steps.planning.outputs.video-concept-5 }}
+      video-concept-6: ${{ steps.planning.outputs.video-concept-6 }}
+      video-concept-7: ${{ steps.planning.outputs.video-concept-7 }}
+      video-concept-8: ${{ steps.planning.outputs.video-concept-8 }}
+      voice-settings: ${{ steps.planning.outputs.voice-settings }}
+      news-title: ${{ steps.planning.outputs.news-title }}
+      news-summary: ${{ steps.planning.outputs.news-summary }}
+      title-image-prompt: ${{ steps.planning.outputs.title-image-prompt }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Claude Code SDK
+        run: npm install @anthropic-ai/claude-code
+      
+      - name: ニュース企画エージェント
+        id: planning
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+        run: |
+          echo "::group::📰 News Planning Agent Execution"
+          echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+          
+          # 設定
+          USER_CONCEPT="${{ inputs.concept }}"
+          NEWS_CONTENT="${{ inputs.news-content }}"
+          TARGET_LANGUAGE="${{ inputs.target-language }}"
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          PLANNING_DIR="$FOLDER_NAME/planning"
+          VIDEO_INDEX="${{ inputs.video_index }}"
+          NEWS_STYLE="${{ inputs.news-style }}"
+          NEWS_DURATION="${{ inputs.news-duration }}"
+          ANCHOR_TYPE="${{ inputs.anchor-type }}"
+          
+          echo "User concept: $USER_CONCEPT"
+          echo "News content: $NEWS_CONTENT"
+          echo "Target language: $TARGET_LANGUAGE"
+          echo "Planning folder: $PLANNING_DIR"
+          echo "Video index: $VIDEO_INDEX"
+          echo "News style: $NEWS_STYLE"
+          echo "News duration: $NEWS_DURATION seconds"
+          echo "Anchor type: $ANCHOR_TYPE"
+          
+          # プランニングディレクトリを作成
+          mkdir -p "$PLANNING_DIR"
+          
+          # カスタムテキストプロンプトの確認
+          CUSTOM_TEXT_PROMPT=\"${{ inputs.text-prompt }}\"
+          
+          # プロンプトの構築
+          PROMPT="あなたはプロのニュース制作ディレクターです。以下の情報を基にニュース番組の企画を作成してください。
+
+          **ニューストピック**: $USER_CONCEPT
+          **ユーザー指定のニュース内容**: $NEWS_CONTENT
+          **カスタムテキストプロンプト**: $CUSTOM_TEXT_PROMPT
+          **翻訳先言語**: $TARGET_LANGUAGE
+          **ニューススタイル**: $NEWS_STYLE
+          **ニュース長さ**: $NEWS_DURATION 秒
+          **アンカータイプ**: $ANCHOR_TYPE
+
+          **作成するもの**:
+
+          1. **音声プロンプト（ニュース原稿）** ($PLANNING_DIR/audio-prompt-${VIDEO_INDEX}.txt)
+             - **重要な条件分岐**:
+               * カスタムテキストプロンプトが指定されている場合（\"$CUSTOM_TEXT_PROMPT\" が空でない場合）:
+                 → カスタムテキストプロンプトをそのまま使用
+               * カスタムテキストプロンプトが空の場合:
+                 → ユーザー指定のニュース内容「$NEWS_CONTENT」を $TARGET_LANGUAGE に翻訳して使用
+             - 選択された内容をファイルに保存
+             - ファイルには改行を含めず、1行のテキストとして保存
+             - 翻訳が必要な場合は自然で流暢な翻訳を心がける
+             - ユーザーの指定した原稿の内容を拡大解釈することなく、忠実に反映すること。
+
+          2. **画像プロンプト** ($PLANNING_DIR/image-prompt-${VIDEO_INDEX}.txt)
+             - 女性のニュースアンカー（$ANCHOR_TYPE タイプ）
+             - プロフェッショナルな女性らしい服装（スーツまたはブラウス）
+             - ニューススタジオの背景
+             - 正面向き、リップシンクに適した表情
+             - 高品質、フォトリアリスティック
+             - 英語で作成
+
+          3. **動画コンセプト** ($PLANNING_DIR/video-concept-${VIDEO_INDEX}.txt)
+             - 自然に話している様子
+             - 適度な身振り手振り
+             - プロフェッショナルな雰囲気
+             - リップシンクに最適な口の動き
+             - 英語で作成
+
+          4. **音声設定** ($PLANNING_DIR/voice-settings.json)
+             - 女性の声で$ANCHOR_TYPE に合った音声設定
+             - 適切な話速
+             - トーンと感情の設定
+             - JSON形式で作成
+             例: {\"voice\": \"female_professional\", \"gender\": \"female\", \"speed\": 1.0, \"pitch\": 0, \"emotion\": \"confident\"}
+
+          5. **ニュースタイトル** ($PLANNING_DIR/news-title.txt)
+             - 魅力的で内容を的確に表すタイトル
+             - 1行で簡潔に（30文字程度まで）
+             - 英語で作成（バナー表示用）
+
+          6. **ニュース要約** ($PLANNING_DIR/news-summary.txt)
+             - 3-5文でニュースの要点をまとめる
+
+          7. **タイトル背景画像プロンプト** ($PLANNING_DIR/title-image-prompt.txt)
+             - ニュースタイトル表示用の背景デザイン
+             - プロフェッショナルなニュース番組の雰囲気
+             - テキストが読みやすい背景色・デザイン
+             - $NEWS_STYLE に合わせたデザイン（formal/casual/entertainment）
+             - 英語で作成
+
+          8. **企画書** ($PLANNING_DIR/news-plan.md)
+             - 全体の企画内容をMarkdown形式でまとめる
+             - 各要素の意図と狙いを説明
+
+          **重要な注意点**:
+          - ニュース原稿は$TARGET_LANGUAGEで作成
+          - 画像・動画プロンプトは英語で作成
+          - **ニュースタイトルは英語で作成**（バナー表示用）
+          - リップシンクを前提とした内容にする
+          - $NEWS_STYLE と $ANCHOR_TYPE の一貫性を保つ
+          - **性別統一**: 画像、動画、音声すべて女性で統一すること
+          - 実際のニュース番組のようなプロフェッショナルな仕上がりを目指す
+
+          **GitHub Outputの設定**:
+          各ファイル作成後、以下の形式でGitHub Outputsを設定してください：
+          - echo \"audio-prompt-${VIDEO_INDEX}=\$(cat $PLANNING_DIR/audio-prompt-${VIDEO_INDEX}.txt | tr '\n' ' ')\" >> \$GITHUB_OUTPUT
+          - echo \"image-prompt-${VIDEO_INDEX}=\$(cat $PLANNING_DIR/image-prompt-${VIDEO_INDEX}.txt)\" >> \$GITHUB_OUTPUT
+          - echo \"video-concept-${VIDEO_INDEX}=\$(cat $PLANNING_DIR/video-concept-${VIDEO_INDEX}.txt)\" >> \$GITHUB_OUTPUT
+          - echo \"voice-settings=\$(cat $PLANNING_DIR/voice-settings.json | jq -c .)\" >> \$GITHUB_OUTPUT
+          - echo \"news-title=\$(cat $PLANNING_DIR/news-title.txt)\" >> \$GITHUB_OUTPUT
+          - echo \"news-summary=\$(cat $PLANNING_DIR/news-summary.txt | tr '\n' ' ')\" >> \$GITHUB_OUTPUT
+          - echo \"title-image-prompt=\$(cat $PLANNING_DIR/title-image-prompt.txt)\" >> \$GITHUB_OUTPUT
+          - echo \"completed=true\" >> \$GITHUB_OUTPUT"
+          
+          echo "🚀 Starting News Planning Agent Claude Code CLI..."
+          echo "📝 Prompt length: ${#PROMPT}"
+          
+          # Claude Code CLIの実行
+          npx @anthropic-ai/claude-code \
+            --max-turns 40 \
+            --verbose \
+            --permission-mode "acceptEdits" \
+            -p "$PROMPT" || {
+              echo "::error::❌ Claude Code CLI execution failed"
+              exit 1
+            }
+          
+          # 生成されたファイルの確認
+          echo ""
+          echo "📋 Checking generated planning files..."
+          if [ -d "$PLANNING_DIR" ]; then
+            echo "::notice::📁 Planning directory contents:"
+            ls -la "$PLANNING_DIR"
+            
+            # 必須ファイルの確認
+            REQUIRED_FILES=(
+              "audio-prompt-${VIDEO_INDEX}.txt"
+              "image-prompt-${VIDEO_INDEX}.txt"
+              "video-concept-${VIDEO_INDEX}.txt"
+              "voice-settings.json"
+              "news-title.txt"
+              "news-summary.txt"
+              "title-image-prompt.txt"
+              "news-plan.md"
+            )
+            
+            ALL_FILES_EXIST=true
+            for file in "${REQUIRED_FILES[@]}"; do
+              if [ ! -f "$PLANNING_DIR/$file" ]; then
+                echo "::error::❌ Missing required file: $file"
+                ALL_FILES_EXIST=false
+              else
+                echo "✅ Found: $file"
+              fi
+            done
+            
+            if [ "$ALL_FILES_EXIST" = false ]; then
+              echo "::error::❌ Not all required files were generated"
+              exit 1
+            fi
+            
+            # GitHub Outputsの手動設定（エージェントが設定していない場合のフォールバック）
+            if [ -z "${AUDIO_PROMPT_OUTPUT:-}" ]; then
+              echo "Setting GitHub Outputs manually..."
+              echo "audio-prompt-${VIDEO_INDEX}=$(cat $PLANNING_DIR/audio-prompt-${VIDEO_INDEX}.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+              echo "image-prompt-${VIDEO_INDEX}=$(cat $PLANNING_DIR/image-prompt-${VIDEO_INDEX}.txt)" >> $GITHUB_OUTPUT
+              echo "video-concept-${VIDEO_INDEX}=$(cat $PLANNING_DIR/video-concept-${VIDEO_INDEX}.txt)" >> $GITHUB_OUTPUT
+              if command -v jq >/dev/null 2>&1; then
+                echo "voice-settings=$(cat $PLANNING_DIR/voice-settings.json | jq -c .)" >> $GITHUB_OUTPUT
+              else
+                echo "voice-settings=$(cat $PLANNING_DIR/voice-settings.json | tr -d '\n')" >> $GITHUB_OUTPUT
+              fi
+              echo "news-title=$(cat $PLANNING_DIR/news-title.txt)" >> $GITHUB_OUTPUT
+              echo "news-summary=$(cat $PLANNING_DIR/news-summary.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+              echo "title-image-prompt=$(cat $PLANNING_DIR/title-image-prompt.txt)" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "::error::❌ Planning directory not found"
+            exit 1
+          fi
+          
+          echo "completed=true" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+      
+      - name: Commit planning files
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ inputs.folder-name }}/planning/
+          if git diff --cached --quiet; then
+            echo "No planning files to commit"
+          else
+            git commit -m "Add news planning for: ${{ inputs.concept }}
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi

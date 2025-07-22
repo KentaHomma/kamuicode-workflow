@@ -1,0 +1,223 @@
+name: module-lipsync-video-analysis-gca
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      video-url:
+        description: 'リップシンク動画URL'
+        required: true
+        type: string
+      text-content:
+        description: '音声テキスト内容'
+        required: true
+        type: string
+      target-language:
+        description: '字幕言語 (japanese または english)'
+        required: false
+        type: string
+        default: 'japanese'
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      video_index:
+        description: '動画インデックス'
+        required: false
+        type: string
+        default: '1'
+    outputs:
+      completed:
+        description: '解析完了ステータス'
+        value: ${{ jobs.lipsync-video-analysis.outputs.completed }}
+      subtitle-timing-json:
+        description: '字幕タイミング設定JSON'
+        value: ${{ jobs.lipsync-video-analysis.outputs.subtitle-timing-json }}
+    secrets:
+      gemini_api_key:
+        description: 'Gemini API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  lipsync-video-analysis:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      completed: ${{ steps.analysis-complete.outputs.completed }}
+      subtitle-timing-json: ${{ steps.analysis-complete.outputs.subtitle-timing-json }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+          
+      - name: 📊 リップシンク動画字幕解析エージェント (Gemini Vision)
+        id: analyze-lipsync-video
+        uses: google-gemini/gemini-cli-action@main
+        with:
+          GEMINI_API_KEY: ${{ secrets.gemini_api_key }}
+          prompt: |
+            📊 **リップシンク動画字幕タイミング解析タスク - Gemini Vision エージェント**
+            
+            **タスク**: リップシンク動画を分析し、音声テキストに合わせた字幕表示タイミングを決定する
+            
+            **入力データ**:
+            - **動画URL**: ${{ inputs.video-url }}
+            - **音声テキスト**: "${{ inputs.text-content }}"
+            - **字幕言語**: ${{ inputs.target-language }}
+            - **基本コンセプト**: ${{ inputs.concept }}
+            
+            **重要**: 動画URLが空または"undefined"の場合は、エラーを報告してください
+            
+            **分析手順**:
+            1. **ディレクトリ作成**:
+               ```bash
+               mkdir -p ${{ inputs.folder-name }}/subtitle-analysis-${{ inputs.video_index }}
+               ```
+               
+            2. **動画解析**:
+               - Gemini Vision APIで動画の口の動きを分析
+               - 話している部分と無音部分を特定
+               - リップシンクの品質と同期度を評価
+               
+            3. **テキスト分析**:
+               - 音声テキストを意味のあるセグメントに分割
+               - 各セグメントの読み上げ時間を推定
+               - 自然な区切りポイントを特定
+               
+            4. **字幕タイミング設計**:
+               - 動画の長さを確認
+               - テキスト長と動画長のバランスを考慮
+               - 読みやすい字幕表示時間を設定（最低1.5秒、最大5秒）
+               - 字幕の切り替えタイミングを口の動きに同期
+               
+            5. **字幕スタイル最適化**:
+               - 言語別フォント設定（日本語: Noto Sans CJK、英語: Arial/Helvetica）
+               - 動画サイズに適したフォントサイズ決定
+               - 背景色とのコントラストを考慮した文字色設定
+               - 字幕位置の最適化（画面下部中央を基本）
+               
+            6. **JSON設定ファイル作成**:
+               以下の形式で字幕タイミングJSONを作成してください:
+               ```json
+               {
+                 "video_info": {
+                   "duration": <動画の長さ（秒）>,
+                   "fps": 30,
+                   "resolution": "1920x1080"
+                 },
+                 "subtitles": [
+                   {
+                     "id": 1,
+                     "start_time": 0.0,
+                     "end_time": 2.5,
+                     "text": "字幕テキストセグメント1",
+                     "position": "bottom_center",
+                     "font_size": 24,
+                     "font_color": "white",
+                     "background_color": "rgba(0,0,0,0.7)",
+                     "fade_in": 0.2,
+                     "fade_out": 0.2
+                   }
+                 ],
+                 "global_settings": {
+                   "font_family": "${{ inputs.target-language == 'japanese' && 'NotoSansCJK-Regular' || 'Arial' }}",
+                   "default_font_size": 24,
+                   "default_position": "bottom_center",
+                   "default_color": "white",
+                   "default_background": "rgba(0,0,0,0.7)",
+                   "line_spacing": 1.2,
+                   "margin_bottom": 60,
+                   "max_characters_per_line": 40,
+                   "min_display_time": 1.5,
+                   "max_display_time": 5.0
+                 },
+                 "analysis_metadata": {
+                   "original_text": "${{ inputs.text-content }}",
+                   "language": "${{ inputs.target-language }}",
+                   "sync_quality": "高品質/中品質/要改善",
+                   "recommendations": ["改善提案1", "改善提案2"]
+                 }
+               }
+               ```
+               
+            7. **分析結果保存**:
+               ```
+               write_file(${{ inputs.folder-name }}/subtitle-analysis-${{ inputs.video_index }}/subtitle-timing.json, JSON設定データ)
+               write_file(${{ inputs.folder-name }}/subtitle-analysis-${{ inputs.video_index }}/analysis-report.md, 詳細分析レポート)
+               ```
+               
+            **分析レポート必須項目**:
+            - **動画品質評価**: リップシンクの精度、音声同期度
+            - **字幕設計判断**: タイミング設定の根拠
+            - **技術的推奨事項**: ffmpeg実装時の注意点
+            - **改善提案**: より良い字幕表示のための提案
+            - **言語固有考慮**: 日本語/英語それぞれの最適化ポイント
+            
+            **重要な考慮点**:
+            - 字幕の可読性を最優先
+            - 動画の視覚的要素を遮らない配置
+            - 口の動きと字幕切り替えの自然な同期
+            - 文章の意味を保持したセグメント分割
+            - アクセシビリティ（読みやすさ）への配慮
+            
+            **出力要求**:
+            1. subtitle-timing.jsonファイルの作成
+            2. 分析レポート（analysis-report.md）の作成
+            3. GitHub Outputsへの設定値出力
+
+      - name: Mark analysis complete
+        id: analysis-complete
+        run: |
+          ANALYSIS_DIR="${{ inputs.folder-name }}/subtitle-analysis-${{ inputs.video_index }}"
+          
+          # 生成されたファイルの確認
+          if [ -f "$ANALYSIS_DIR/subtitle-timing.json" ]; then
+            echo "✅ 字幕タイミングJSON作成完了"
+            
+            # JSONの内容をGitHub Outputに設定
+            SUBTITLE_JSON=$(cat "$ANALYSIS_DIR/subtitle-timing.json" | jq -c .)
+            echo "subtitle-timing-json=$SUBTITLE_JSON" >> $GITHUB_OUTPUT
+            echo "completed=true" >> $GITHUB_OUTPUT
+            
+            # 分析結果の簡易表示
+            echo "::notice::字幕セグメント数: $(echo "$SUBTITLE_JSON" | jq '.subtitles | length')"
+            echo "::notice::動画長: $(echo "$SUBTITLE_JSON" | jq -r '.video_info.duration')秒"
+            
+          else
+            echo "::error::❌ 字幕タイミングJSONファイルが見つかりません"
+            echo "completed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+      - name: Commit analysis results
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No analysis files to commit"
+          else
+            git commit -m "📊 Add lipsync video subtitle analysis: ${{ inputs.concept }} (video-${{ inputs.video_index }})
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi

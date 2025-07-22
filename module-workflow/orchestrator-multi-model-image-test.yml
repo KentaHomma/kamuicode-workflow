@@ -1,0 +1,72 @@
+name: orchestrator-multi-model-image-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      concept:
+        description: '画像のコンセプト'
+        required: true
+        type: string
+      model_type:
+        description: '使用する画像生成モデル'
+        required: true
+        type: choice
+        options:
+          - 't2i-google-imagen3'
+          - 't2i-fal-imagen4-ultra'
+          - 't2i-fal-imagen4-fast'
+          - 't2i-fal-flux-schnell'
+          - 't2i-fal-rundiffusion-photo-flux'
+        default: 't2i-fal-imagen4-ultra'
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  # 1. ブランチ・フォルダセットアップ
+  setup:
+    uses: ./.github/workflows/module-setup-branch.yml
+    with:
+      concept: ${{ inputs.concept }}
+      project_prefix: 'image-test'
+
+  # 2. AI企画（1画像用）
+  planning:
+    needs: setup
+    uses: ./.github/workflows/module-planning-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      total_videos: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 3. マルチモデル画像生成
+  image-generation:
+    needs: [setup, planning]
+    uses: ./.github/workflows/module-image-generation-kc-multi-model-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.image-prompt-1 }}
+      model-type: ${{ inputs.model_type }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 4. PR作成
+  create-pr:
+    needs: [setup, image-generation]
+    uses: ./.github/workflows/module-create-pr.yml
+    with:
+      concept: ${{ inputs.concept }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      github_pat: ${{ secrets.PAT_TOKEN }}

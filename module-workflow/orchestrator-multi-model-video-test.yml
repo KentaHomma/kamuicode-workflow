@@ -1,0 +1,119 @@
+name: orchestrator-multi-model-video-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      concept:
+        description: '動画のコンセプト'
+        required: true
+        type: string
+      video_model_type:
+        description: '使用する動画生成モデル'
+        required: true
+        type: choice
+        options:
+          - 't2v-fal-veo3-fast'
+          - 'i2v-fal-hailuo-02-pro'
+          - 'r2v-fal-vidu-q1'
+        default: 'i2v-fal-hailuo-02-pro'
+      image_model_type:
+        description: '使用する画像生成モデル（i2v/r2vの場合のみ）'
+        required: false
+        type: choice
+        options:
+          - 't2i-google-imagen3'
+          - 't2i-fal-imagen4-ultra'
+          - 't2i-fal-imagen4-fast'
+          - 't2i-fal-flux-schnell'
+          - 't2i-fal-rundiffusion-photo-flux'
+        default: 't2i-fal-imagen4-fast'
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  # 1. ブランチ・フォルダセットアップ
+  setup:
+    uses: ./.github/workflows/module-setup-branch.yml
+    with:
+      concept: ${{ inputs.concept }}
+      project_prefix: 'video-test'
+
+  # 2. AI企画（1動画用）
+  planning:
+    needs: setup
+    uses: ./.github/workflows/module-planning-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      total_videos: '1'
+      image-model-type: ${{ inputs.image_model_type }}
+      video-model-type: ${{ inputs.video_model_type }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 3. 画像生成（i2v/r2v用、t2vの場合はスキップ）
+  image-generation:
+    needs: [setup, planning]
+    if: ${{ !startsWith(inputs.video_model_type, 't2v-') }}
+    uses: ./.github/workflows/module-image-generation-kc-multi-model-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      image-prompt: ${{ needs.planning.outputs.image-prompt-1 }}
+      model-type: ${{ inputs.image_model_type }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 4. 動画プロンプト最適化（i2v/r2v用）
+  video-optimization:
+    needs: [setup, planning, image-generation]
+    if: ${{ !startsWith(inputs.video_model_type, 't2v-') }}
+    uses: ./.github/workflows/module-video-prompt-optimization-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      video-concept: ${{ needs.planning.outputs.video-concept-1 }}
+      image-url: ${{ needs.image-generation.outputs.image-url }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 5. マルチモデル動画生成
+  video-generation:
+    needs: [setup, planning, image-generation, video-optimization]
+    if: ${{ always() && !cancelled() && (needs.setup.result == 'success' && needs.planning.result == 'success') }}
+    uses: ./.github/workflows/module-video-generation-kc-multi-model-ccsdk.yml
+    with:
+      concept: ${{ inputs.concept }}
+      model-type: ${{ inputs.video_model_type }}
+      text-prompt: ${{ startsWith(inputs.video_model_type, 't2v-') && needs.planning.outputs.video-concept-1 || '' }}
+      video-prompt: ${{ !startsWith(inputs.video_model_type, 't2v-') && needs.video-optimization.outputs.video-prompt || '' }}
+      image-url: ${{ !startsWith(inputs.video_model_type, 't2v-') && needs.image-generation.outputs.image-url || '' }}
+      video_index: '1'
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+      github_pat: ${{ secrets.PAT_TOKEN }}
+
+  # 6. PR作成
+  create-pr:
+    needs: [setup, video-generation]
+    if: ${{ always() && !cancelled() && needs.setup.result == 'success' && needs.video-generation.result == 'success' }}
+    uses: ./.github/workflows/module-create-pr.yml
+    with:
+      concept: ${{ inputs.concept }}
+      branch-name: ${{ needs.setup.outputs.branch-name }}
+      folder-name: ${{ needs.setup.outputs.folder-name }}
+    secrets:
+      github_pat: ${{ secrets.PAT_TOKEN }}

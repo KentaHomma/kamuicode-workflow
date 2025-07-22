@@ -1,4 +1,4 @@
-name: module-image-generation-kc-t2i-fal-imagen4-ultra-ccsdk
+name: module-image-generation-kc-multi-model-ccsdk
 
 on:
   workflow_call:
@@ -9,6 +9,10 @@ on:
         type: string
       image-prompt:
         description: '画像生成用プロンプト'
+        required: true
+        type: string
+      model-type:
+        description: '使用する画像生成モデル (例: t2i-fal-imagen4-ultra)'
         required: true
         type: string
       branch-name:
@@ -32,11 +36,8 @@ on:
         description: '画像URL'
         value: ${{ jobs.image-generation.outputs.image-url }}
     secrets:
-      CLAUDE_CODE_OAUTH_TOKEN:
+      anthropic_api_key:
         description: 'Anthropic API Key'
-        required: true
-      MCP_CONFIG_SECRET:
-        description: 'MCP Configuration JSON'
         required: true
       github_pat:
         description: 'GitHub Token'
@@ -65,40 +66,25 @@ jobs:
       - name: Install Claude Code SDK
         run: npm install @anthropic-ai/claude-code
       
-      - name: Create MCP config file from secret
-        env:
-          MCP_CONFIG_SECRET: ${{ secrets.MCP_CONFIG_SECRET }}
-        run: |
-          mkdir -p .claude
-          echo "$MCP_CONFIG_SECRET" > .claude/mcp-kamuicode.json
-          echo "✅ Created MCP config file from secret"
-          
-          # Validate JSON format
-          if ! node -e "JSON.parse(require('fs').readFileSync('.claude/mcp-kamuicode.json', 'utf8'))" 2>/dev/null; then
-            echo "❌ Invalid JSON in MCP config file"
-            echo "File contents:"
-            cat .claude/mcp-kamuicode.json
-            exit 1
-          fi
-          echo "✅ MCP config JSON is valid"
-      
-      - name: 画像生成エージェント (Imagen4 Ultra)
+      - name: 画像生成エージェント (マルチモデル対応)
         id: image
         env:
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
         run: |
-          echo "::group::🎨 Image Generation Agent Execution (Imagen4 Ultra)"
+          echo "::group::🎨 Image Generation Agent Execution (Multi-Model)"
           echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
           
           # 設定
           USER_CONCEPT="${{ inputs.concept }}"
           PLANNED_IMAGE_PROMPT="${{ inputs.image-prompt }}"
+          MODEL_TYPE="${{ inputs.model-type }}"
           FOLDER_NAME="${{ inputs.folder-name }}"
           VIDEO_INDEX="${{ inputs.video_index }}"
           IMAGES_DIR="$FOLDER_NAME/images-${VIDEO_INDEX}"
           
           echo "User concept: $USER_CONCEPT"
           echo "Planned image prompt: $PLANNED_IMAGE_PROMPT"
+          echo "Model type: $MODEL_TYPE"
           echo "Video index: $VIDEO_INDEX"
           echo "Target folder: $IMAGES_DIR"
           
@@ -121,20 +107,28 @@ jobs:
           fi
           
           # プロンプトの構築
-          PROMPT="以下のプロンプトでImagen4 Ultraを使用して高品質な画像を生成してください。
+          PROMPT="指定されたモデルタイプを使用して高品質な画像を生成してください。
 
           **元のユーザー指示**: $USER_CONCEPT
           **最適化された画像生成プロンプト**: $PLANNED_IMAGE_PROMPT
+          **使用するモデルタイプ**: $MODEL_TYPE
 
           **実行手順**:
-          1. **最適化された画像生成プロンプト**（$PLANNED_IMAGE_PROMPT）を使用してImagen4 Ultraで画像生成
-          2. \`mcp__t2i-fal-imagen4-ultra__imagen4_ultra_submit\`ツールで画像生成を開始
-          3. \`mcp__t2i-fal-imagen4-ultra__imagen4_ultra_status\`でステータス確認
-          4. \`mcp__t2i-fal-imagen4-ultra__imagen4_ultra_result\`で結果取得してGoogle URLを取得
-          5. **重要**: 生成時に取得したGoogle URLを「$IMAGES_DIR/image-url.txt」ファイルに保存
-          6. 取得したGoogle URLをBashツールで「$IMAGES_DIR/image.png」にダウンロード保存
+          1. まず、\`.github/workflows/kamuicode/kamuicode-usage.md\`ファイルを読み込んで、モデルタイプ「$MODEL_TYPE」に対応するMCPツール名を確認してください
+          2. ファイルから以下の情報を抽出:
+             - モデルの表示名（例: Imagen4 Ultra）
+             - submitツール名（例: mcp__t2i-fal-imagen4-ultra__imagen4_ultra_submit）
+             - statusツール名（例: mcp__t2i-fal-imagen4-ultra__imagen4_ultra_status）
+             - resultツール名（例: mcp__t2i-fal-imagen4-ultra__imagen4_ultra_result）
+          3. **最適化された画像生成プロンプト**（$PLANNED_IMAGE_PROMPT）を使用して、抽出したツールで画像生成
+          4. submitツールで画像生成を開始
+          5. statusツールでステータス確認
+          6. resultツールで結果取得してGoogle URLを取得
+          7. **重要**: 生成時に取得したGoogle URLを「$IMAGES_DIR/image-url.txt」ファイルに保存
+          8. 取得したGoogle URLをBashツールで「$IMAGES_DIR/image.png」にダウンロード保存
 
           **重要な注意点**:
+          - kamuicode-usage.mdから正しいツール名を読み取ること
           - Google URLの有効期限は約1時間のため、生成後すぐにダウンロード
           - 必ずGoogle提供の認証済URLを使用
           - 画像は必ず「$IMAGES_DIR」ディレクトリに保存
@@ -145,10 +139,10 @@ jobs:
           echo "🚀 Starting Image Generation Agent Claude Code CLI..."
           echo "📝 Prompt length: ${#PROMPT}"
           
-          # Claude Code CLIの実行
+          # Claude Code CLIの実行（MCPツールはワイルドカードで許可）
           npx @anthropic-ai/claude-code \
             --mcp-config="$MCP_CONFIG_ABS_PATH" \
-            --allowedTools "mcp__t2i-fal-imagen4-ultra__imagen4_ultra_submit,mcp__t2i-fal-imagen4-ultra__imagen4_ultra_status,mcp__t2i-fal-imagen4-ultra__imagen4_ultra_result,Bash" \
+            --allowedTools "mcp__t2i-*,Read,Bash" \
             --max-turns 40 \
             --verbose \
             --permission-mode "acceptEdits" \
@@ -162,7 +156,7 @@ jobs:
           echo "📸 Checking generated images..."
           if [ -d "$IMAGES_DIR" ]; then
             IMAGE_COUNT=$(find "$IMAGES_DIR" -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" | wc -l)
-            echo "::notice::📸 Generated $IMAGE_COUNT images"
+            echo "::notice::📸 Generated $IMAGE_COUNT images using $MODEL_NAME"
             if [ "$IMAGE_COUNT" -gt 0 ]; then
               # Google URLを確認してGitHub Outputに設定
               if [ -f "$IMAGES_DIR/image-url.txt" ]; then
@@ -195,7 +189,11 @@ jobs:
           if git diff --cached --quiet; then
             echo "No images to commit"
           else
-            git commit -m "Add generated images: ${{ inputs.concept }}"
+            git commit -m "Add generated images using ${{ inputs.model-type }}: ${{ inputs.concept }}
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+            
+            Co-Authored-By: Claude <noreply@anthropic.com>"
             # リベースしてからプッシュ（並列実行での競合を回避）
             git pull --rebase origin ${{ inputs.branch-name }} || true
             git push origin ${{ inputs.branch-name }}

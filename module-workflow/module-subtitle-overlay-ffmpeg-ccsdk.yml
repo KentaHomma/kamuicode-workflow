@@ -1,0 +1,275 @@
+name: module-subtitle-overlay-ffmpeg-ccsdk
+
+on:
+  workflow_call:
+    inputs:
+      concept:
+        description: 'ユーザーのコンセプト'
+        required: true
+        type: string
+      video-url:
+        description: '元動画URL'
+        required: true
+        type: string
+      text-content:
+        description: '字幕テキスト内容'
+        required: true
+        type: string
+      subtitle-timing-json:
+        description: '字幕タイミング設定JSON'
+        required: true
+        type: string
+      target-language:
+        description: '字幕言語 (japanese または english)'
+        required: false
+        type: string
+        default: 'japanese'
+      branch-name:
+        description: 'ワーキングブランチ名'
+        required: true
+        type: string
+      folder-name:
+        description: 'プロジェクトフォルダ名'
+        required: true
+        type: string
+      video_index:
+        description: '動画インデックス'
+        required: false
+        type: string
+        default: '1'
+    outputs:
+      video-url:
+        description: '字幕付き動画URL'
+        value: ${{ jobs.subtitle-overlay.outputs.video-url }}
+      completed:
+        description: '処理完了フラグ'
+        value: ${{ jobs.subtitle-overlay.outputs.completed }}
+    secrets:
+      anthropic_api_key:
+        description: 'Anthropic API Key'
+        required: true
+      github_pat:
+        description: 'GitHub Token'
+        required: true
+
+jobs:
+  subtitle-overlay:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      video-url: ${{ steps.subtitle-complete.outputs.video-url }}
+      completed: ${{ steps.subtitle-complete.outputs.completed }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.branch-name }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install Claude Code SDK
+        run: npm install @anthropic-ai/claude-code
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-cjk fonts-liberation
+          
+          echo "✅ System dependencies installed successfully"
+          
+          # ffmpegのバージョン確認
+          echo "📋 FFmpeg version:"
+          ffmpeg -version | head -5
+          
+          # フォントの確認（エラーでも継続）
+          echo "📋 Available fonts:"
+          fc-list | grep -i noto | head -5 || echo "Noto fonts not found"
+          fc-list | grep -i liberation | head -3 || echo "Liberation fonts not found"
+          fc-list | grep -i arial | head -3 || echo "Arial fonts not found (using Liberation instead)"
+          
+          echo "✅ Font check completed"
+      
+      - name: 🎬 字幕オーバーレイエージェント (Claude Code SDK + ffmpeg)
+        id: overlay-subtitles
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic_api_key }}
+        run: |
+          echo "::group::🎬 Subtitle Overlay Agent Execution"
+          echo "Starting at: $(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+          
+          # 設定
+          USER_CONCEPT="${{ inputs.concept }}"
+          VIDEO_URL="${{ inputs.video-url }}"
+          TEXT_CONTENT="${{ inputs.text-content }}"
+          SUBTITLE_JSON='${{ inputs.subtitle-timing-json }}'
+          TARGET_LANGUAGE="${{ inputs.target-language }}"
+          FOLDER_NAME="${{ inputs.folder-name }}"
+          SUBTITLE_DIR="$FOLDER_NAME/subtitle-overlay-${{ inputs.video_index }}"
+          VIDEO_INDEX="${{ inputs.video_index }}"
+          
+          echo "User concept: $USER_CONCEPT"
+          echo "Video URL: $VIDEO_URL"
+          echo "Target language: $TARGET_LANGUAGE"
+          echo "Subtitle directory: $SUBTITLE_DIR"
+          echo "Video index: $VIDEO_INDEX"
+          
+          # 字幕オーバーレイディレクトリを作成
+          mkdir -p "$SUBTITLE_DIR"
+          
+          # 字幕タイミングJSONをファイルに保存
+          echo "$SUBTITLE_JSON" > "$SUBTITLE_DIR/subtitle-timing.json"
+          
+          # プロンプトの構築
+          PROMPT="あなたはffmpegを使用した動画字幕オーバーレイの専門エージェントです。リップシンク動画に字幕を挿入してください。
+
+          **入力情報**:
+          - **動画URL**: $VIDEO_URL
+          - **字幕テキスト**: \"$TEXT_CONTENT\"
+          - **字幕言語**: $TARGET_LANGUAGE
+          - **字幕タイミング設定**: $SUBTITLE_DIR/subtitle-timing.json (既に作成済み)
+          - **出力ディレクトリ**: $SUBTITLE_DIR
+
+          **重要**: 動画URLが空または\"undefined\"の場合は、エラーを報告してください
+
+          **実行手順**:
+
+          1. **字幕タイミングJSON解析**:
+             - $SUBTITLE_DIR/subtitle-timing.json を読み込む
+             - 各字幕セグメントの開始時刻、終了時刻、テキストを抽出
+             - フォント設定とスタイル情報を確認
+
+          2. **動画ダウンロード**:
+             ```bash
+             cd $SUBTITLE_DIR
+             wget \"$VIDEO_URL\" -O input-video.mp4
+             
+             # 動画情報の確認
+             ffprobe -v quiet -print_format json -show_format -show_streams input-video.mp4 > video-info.json
+             ```
+
+          3. **フォント設定**:
+             - 日本語の場合: /usr/share/fonts/opentype/noto/NotoCJK-Regular.ttc または利用可能なCJKフォント
+             - 英語の場合: /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf
+             ```bash
+             # 利用可能なフォントを確認
+             fc-list | grep -i \"$TARGET_LANGUAGE == 'japanese' && 'noto\\|cjk' || 'liberation\\|arial'\"
+             ```
+
+          4. **字幕ファイル生成**:
+             字幕タイミングJSONから、ffmpeg用の字幕コマンドを生成:
+             ```bash
+             # 例: drawtext フィルタ用のコマンド生成
+             # 複数の字幕セグメントを enable パラメータで制御
+             ```
+
+          5. **ffmpeg字幕オーバーレイ実行**:
+             以下の要件でffmpegコマンドを実行:
+             - 字幕の位置: 画面下部中央 (x=(w-text_w)/2:y=h-100)
+             - 文字色: 白 (fontcolor=white)
+             - 背景: 半透明黒 (box=1:boxcolor=black@0.7)
+             - フェードイン/アウト効果
+             - 複数字幕セグメントの時間制御
+
+             ```bash
+             # 基本的なffmpegコマンド例:
+             ffmpeg -i input-video.mp4 \\
+               -vf \"drawtext=fontfile=/path/to/font:text='字幕テキスト':fontsize=24:fontcolor=white:box=1:boxcolor=black@0.7:x=(w-text_w)/2:y=h-100:enable='between(t,開始時刻,終了時刻)'\" \\
+               -c:a copy \\
+               video.mp4
+             ```
+
+          6. **品質確認**:
+             ```bash
+             # 出力動画の確認
+             ffprobe video.mp4
+             
+             # ファイルサイズと長さの確認
+             ls -lh video.mp4
+             
+             # メタデータの保存
+             echo \"字幕付き動画生成完了\" > subtitle-overlay-log.txt
+             ```
+
+          **重要な技術ポイント**:
+          - 複数字幕セグメントは複数のdrawtextフィルタまたは一つのフィルタでenable条件を使用
+          - 日本語フォントが正しく読み込まれることを確認
+          - 動画の解像度に応じてフォントサイズを調整
+          - 字幕が動画の重要部分を隠さないよう配置
+          - 音声ストリームはそのまま保持 (-c:a copy)
+
+          **エラー処理**:
+          - 動画ダウンロードエラーの処理
+          - フォント読み込みエラーの処理
+          - ffmpeg実行エラーの処理
+          **出力要求**:
+          1. 字幕付き動画ファイル (video.mp4) - 直接このファイル名で出力すること
+          2. 処理ログ (subtitle-overlay-log.txt)"
+          
+          echo "🚀 Starting Subtitle Overlay Agent Claude Code CLI..."
+          echo "📝 Prompt length: ${#PROMPT}"
+          
+          # Claude Code CLIの実行
+          npx @anthropic-ai/claude-code \
+            --max-turns 40 \
+            --verbose \
+            --permission-mode "acceptEdits" \
+            -p "$PROMPT" || {
+              echo "::error::❌ Claude Code CLI execution failed"
+              exit 1
+            }
+          
+          echo "::endgroup::"
+
+      - name: Mark subtitle overlay complete
+        id: subtitle-complete
+        run: |
+          SUBTITLE_DIR="${{ inputs.folder-name }}/subtitle-overlay-${{ inputs.video_index }}"
+          
+          # 生成されたファイルの確認
+          echo "📋 Checking generated subtitle overlay files..."
+          if [ -d "$SUBTITLE_DIR" ]; then
+            echo "::notice::📁 Subtitle overlay directory contents:"
+            ls -la "$SUBTITLE_DIR"
+            
+            # 必須ファイルの確認
+            if [ -f "$SUBTITLE_DIR/video.mp4" ]; then
+              echo "✅ Found: video.mp4"
+              echo "video-url=./$SUBTITLE_DIR/video.mp4" >> $GITHUB_OUTPUT
+              echo "completed=true" >> $GITHUB_OUTPUT
+              
+            else
+              echo "::error::❌ Missing required file: video.mp4"
+              echo "completed=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+            
+          else
+            echo "::error::❌ Subtitle overlay directory not found"
+            echo "completed=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+      - name: Commit subtitle overlay files
+        env:
+          GH_TOKEN: ${{ secrets.github_pat }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ${{ inputs.folder-name }}/subtitle-overlay-${{ inputs.video_index }}/
+          if git diff --cached --quiet; then
+            echo "No subtitle overlay files to commit"
+          else
+            git commit -m "🎬 Add subtitle overlay: ${{ inputs.concept }} (video-${{ inputs.video_index }})
+
+            🤖 Generated with [Claude Code](https://claude.ai/code)
+
+            Co-Authored-By: Claude <noreply@anthropic.com>"
+            # リベースしてからプッシュ（並列実行での競合を回避）
+            git pull --rebase origin ${{ inputs.branch-name }} || true
+            git push origin ${{ inputs.branch-name }}
+          fi
