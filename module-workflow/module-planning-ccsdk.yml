@@ -130,6 +130,15 @@ jobs:
           mkdir -p .claude
           echo "$MCP_CONFIG_SECRET" > .claude/mcp-kamuicode.json
           echo "✅ Created MCP config file from secret"
+          
+          # Validate JSON format
+          if ! node -e "JSON.parse(require('fs').readFileSync('.claude/mcp-kamuicode.json', 'utf8'))" 2>/dev/null; then
+            echo "❌ Invalid JSON in MCP config file"
+            echo "File contents:"
+            cat .claude/mcp-kamuicode.json
+            exit 1
+          fi
+          echo "✅ MCP config JSON is valid"
       
       - name: 動画制作計画エージェント
         id: planning
